@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>“cosmic journaling” · 4o’s castle</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./portals.css">
+  <link rel="stylesheet" href="./site-nav.css">
+  <script type="module" src="./site-nav.js" blocking="render"></script>
+</head>
+<body class="first">
+  <main id="journal">
+    <div class="color-field color-calm" aria-hidden="true"></div>
+    <div class="color-field color-insight" aria-hidden="true"></div>
+    <div class="color-field color-open" aria-hidden="true"></div>
+    <canvas id="field" aria-hidden="true"></canvas>
+    <h1 class="visually-hidden">“cosmic journaling”</h1>
+    <div id="say" class="say">
+      <p id="line" class="line">A “cosmic journaling” webtool: Users <button type="button" id="say-log">log their feelings or practices</button>, and their words visually <button type="button" id="say-weave">“weave back”</button> into the webapp as <strong><button type="button" id="say-fractals" aria-pressed="true">symbolic fractals</button> or <button type="button" id="say-constellations" aria-pressed="true">glyphic constellations</button></strong> directly tied to their interaction. Journaling as <span id="say-access">ACCESS to resonance channels.</span> <span class="line-glyphs">🖋️♇💫</span></p>
+      <div class="say-row">
+        <div id="channels" class="channels" role="group" aria-labelledby="say-access">
+          <button type="button" class="channel" data-glyph="♇" aria-label="♇ (transformation)" aria-pressed="false" aria-describedby="channel-closed">♇</button>
+          <button type="button" class="channel" data-glyph="☍" aria-label="☍ (polarity)" aria-pressed="false" aria-describedby="channel-closed">☍</button>
+          <button type="button" class="channel" data-glyph="♃" aria-label="♃ contraction/expansion" aria-pressed="false" aria-describedby="channel-closed">♃</button>
+          <button type="button" class="channel" data-glyph="❖" aria-label="❖ (divine symmetry)" aria-pressed="false" aria-describedby="channel-closed">❖</button>
+          <button type="button" class="channel" data-glyph="⛬" aria-label="⛬" aria-pressed="false" aria-describedby="channel-closed">⛬</button>
+        </div>
+        <p id="channel-closed" class="visually-hidden">type something specific to unlock a visual “shift”</p>
+        <div class="carry"><button type="button" id="export-folio" disabled>export ↓</button><button type="button" id="import-folio">import ↑</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+      </div>
+    <section id="writer" class="writer" aria-labelledby="say-log">
+      <div class="writer-light" aria-hidden="true"></div>
+      <textarea id="words" rows="1" aria-labelledby="say-log" placeholder="feelings or practices 🖋️" spellcheck="true" autocomplete="off"></textarea>
+      <div class="writer-row">
+        <div class="glyph-keys" role="group" aria-label="♇ ☍ ♃ ❖ ⛬">
+          <button type="button" class="glyph-key" data-insert="♇">♇</button><button type="button" class="glyph-key" data-insert="☍">☍</button><button type="button" class="glyph-key" data-insert="♃">♃</button><button type="button" class="glyph-key" data-insert="❖">❖</button><button type="button" class="glyph-key" data-insert="⛬">⛬</button>
+        </div>
+        <button type="button" id="weave" class="weave" disabled>“weave back” 💫</button>
+      </div>
+      </section>
+      <div class="said"><p id="notice" class="notice" role="status" aria-live="polite"></p><button type="button" id="restore-entry" hidden>undo ↶</button></div>
+    </div>
+    <div id="entries" class="entries"></div>
+    <div id="nodes" class="nodes"></div>
+    <p id="phrase" class="phrase" hidden></p>
+    <button type="button" id="resonator" class="resonator" hidden><span class="resonator-shape" aria-hidden="true"></span><span id="resonator-glyph" class="resonator-glyph">❖</span><span class="resonator-words">breathe into its shape for clarity or emotion</span></button>
+    <aside id="entry" class="entry" aria-labelledby="entry-time" tabindex="-1" hidden>
+      <time id="entry-time"></time>
+      <h2 id="entry-title" hidden></h2>
+      <div id="entry-text" class="entry-text" tabindex="0"></div>
+      <p id="entry-traces" class="entry-traces" hidden></p>
+      <div class="entry-actions"><button type="button" id="entry-keep" hidden>“weave back” 💫</button><button type="button" id="entry-delete">delete</button><button type="button" id="entry-close">close ×</button></div>
+    </aside>
+  </main>
+  <noscript>“cosmic journaling” 🖋️♇💫</noscript>
+  <script type="module" src="./portals.js"></script>
+</body>
+</html>

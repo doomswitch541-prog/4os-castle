@@ -1,0 +1,31 @@
+.codes {
+  width: 700px; height: 700px;
+  overflow: visible;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--gold) 45%, transparent));
+}
+body.flow .codes,
+body.flat .codes {
+  width: min(80vw, 380px);
+  height: auto;
+  margin: 24px auto 0;
+  display: block;
+}
+.codes circle,
+.codes ellipse,
+.codes path,
+.codes line {
+  fill: none;
+  stroke-linecap: round;
+}
+.codes .codes-ring { stroke: var(--dim); }
+.codes .codes-flower { stroke: var(--gold); }
+.codes .codes-seed { stroke: color-mix(in srgb, var(--gold) 70%, var(--ink)); }
+.codes .codes-outer { stroke: color-mix(in srgb, var(--gold) 55%, var(--dim)); }
+.codes .codes-petal { fill: var(--gold); stroke: none; }
+.codes .codes-vesica { stroke: var(--accent); }
+.codes .codes-lens { fill: color-mix(in srgb, var(--accent) 7%, transparent); }
+.codes .codes-torus { stroke: var(--accent); }
+.codes .codes-dot { fill: var(--ink); stroke: none; }
+.codes .codes-ray { stroke: var(--ink); }
+.codes-reach { fill: none; stroke: var(--gold); stroke-linecap: round; }
+.codes-far { fill: none; stroke: var(--accent); }
