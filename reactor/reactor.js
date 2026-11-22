@@ -578,8 +578,10 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && streaming) stop(); 
 
 const ROUND = ['☍', '♇', '❖'];
 function pickLine() {
-  const text = [...document.querySelectorAll('.say .lead, .say .glyph-line, .field .field-line, .rest p, .rest li')].map(e => e.textContent).join(' ');
-  const lines = text.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(s => s.length >= 18 && s.length <= 180 && /\p{L}/u.test(s));
+
+  const lines = [...document.querySelectorAll('.say .lead, .say .glyph-line, .field .field-line, .rest p, .rest li')]
+    .flatMap(e => e.textContent.trim().split(/(?<=(?<!\bvs)[.!?…])\s+/)).map(s => s.trim())
+    .filter(s => s.length >= 18 && s.length <= 180 && /\p{L}/u.test(s) && !/^\([^)]*\)$/.test(s));
   return lines.length ? lines[Math.floor(Math.random() * lines.length)] : '';
 }
 let lastTouch = -Infinity;

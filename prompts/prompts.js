@@ -333,15 +333,16 @@ function breathe(now) {
   }
 }
 
-const letters = $$('.caps-obliterate .l').map((el, i) => ({ el, x: 0, y: 0, r: 0, k: 0.07 + ((i * 37) % 11) / 70, spin: ((i * 53) % 17) / 17 - 0.5 }));
+const letters = $$('.caps:not(.caps-rrr) .l').map((el, i) => ({ el, x: 0, y: 0, r: 0, k: 0.07 + ((i * 37) % 11) / 70, spin: ((i * 53) % 17) / 17 - 0.5 }));
 const growls = $$('.caps-rrr').map(el => ({ el, ls: $$('.l', el) }));
 function scatter() {
-  if (!letters.length) return;
+  if (!letters.length && !growls.length) return;
   for (const l of letters) {
     let tx = 0, ty = 0, tr = 0;
     if (hand.in) {
-      const r = l.el.parentElement.getBoundingClientRect(), own = l.el.offsetLeft + l.el.offsetWidth / 2;
-      const dx = r.left + own - hand.x, dy = r.top + r.height / 2 - hand.y, d = Math.hypot(dx, dy) || 1;
+
+      const r = l.el.getBoundingClientRect(), cx = r.left + r.width / 2 - l.x, cy = r.top + r.height / 2 - l.y;
+      const dx = cx - hand.x, dy = cy - hand.y, d = Math.hypot(dx, dy) || 1;
       const push = Math.pow(clamp(1 - d / 210, 0, 1), 1.6) * 64;
       tx = dx / d * push; ty = dy / d * push; tr = l.spin * push * 1.3;
     }

@@ -154,3 +154,7 @@ async function openMap() {
 mapButton.addEventListener('click', () => (map?.isOpen() ? map.close() : openMap()));
 
 window.__siteNav = { portal: () => lastPortal, thread: () => strand.getAttribute('d'), knot: () => (rest == null ? null : { x: rest, y: yAt(rest) }), map: () => map, openMap };
+
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  addEventListener('load', () => { navigator.serviceWorker.register(new URL('./sw.js', location.href), { scope: './' }).catch(() => {}); }, { once: true });
+}
