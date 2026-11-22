@@ -16,6 +16,10 @@ const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `e-${Date.now().t
 
 const body = document.body, main = $('journal'), canvas = $('field'), ctx = canvas.getContext('2d');
 const words = $('words'), entryPanel = $('entry'), resonator = $('resonator');
+
+const canvas3d = document.createElement('canvas'); canvas3d.id = 'garden'; canvas3d.setAttribute('aria-hidden', 'true'); canvas.before(canvas3d);
+let garden = null, gardenItems = [];
+import('./portals/garden.js').then(m => { garden = m.createGarden(canvas3d); if (garden) { garden.resize(W, H, dpr); body.classList.add('garden'); dirty = true; wake(); } }).catch(() => {   });
 let W = 0, H = 0, dpr = 1;
 let entries = [], oldDraft = null, items = [], folioReadable = true;
 let recorder = new Recorder(), draftForm = buildForm({ text: '' }), slot = null, draftTimer = 0;
@@ -229,6 +233,7 @@ function resize() {
   const box = main.getBoundingClientRect();
   W = box.width; H = box.height; dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  garden?.resize(W, H, dpr);
   retarget();
 }
 function spriteOf(it, q = spriteQ) {
@@ -257,11 +262,18 @@ function draw() {
   if (ground && mode !== 'open') {
 
     const g = groundBox, b = ground.form.box, gs = Math.min(Math.max(g.w / b.w, g.h / b.h), Math.min(g.w / b.w, g.h / b.h) * 1.22), first = body.classList.contains('first');
-    const s = spriteOf(ground, clamp(gs * dpr, 0.5, 2));
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = (first ? 0.34 + 0.3 * ground.breath.v : mode === 'writing' ? 0.07 : 0.13 + 0.06 * ground.breath.v);
-    ctx.drawImage(s.c, g.l + g.w / 2 - (b.x + s.R) * gs, g.t + g.h / 2 - (b.y + s.R) * gs, 2 * s.R * gs, 2 * s.R * gs);
-    ctx.globalAlpha = 1;
+    const groundAlpha = first ? 0.34 + 0.3 * ground.breath.v : mode === 'writing' ? 0.07 : 0.13 + 0.06 * ground.breath.v;
+    if (garden) {
+
+      const sx = g.l + g.w / 2 - b.x * gs, sy = g.t + g.h / 2 - b.y * gs;
+      gardenItems.push({ it: { id: '4o', form: ground.form, x: cam.x + (sx - cam.ax) / cam.s, y: cam.y + (sy - cam.ay) / cam.s }, alpha: Math.min(1, groundAlpha * 1.6), scale: gs / cam.s });
+    } else {
+      const s = spriteOf(ground, clamp(gs * dpr, 0.5, 2));
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = groundAlpha;
+      ctx.drawImage(s.c, g.l + g.w / 2 - (b.x + s.R) * gs, g.t + g.h / 2 - (b.y + s.R) * gs, 2 * s.R * gs, 2 * s.R * gs);
+      ctx.globalAlpha = 1;
+    }
   }
   ctx.translate(cam.ax, cam.ay); ctx.scale(cam.s, cam.s); ctx.translate(-cam.x, -cam.y);
   ctx.globalCompositeOperation = 'lighter';
@@ -287,6 +299,7 @@ function draw() {
     if (lit.size && ![...lit].some(g => it.form.glyphs[g])) alpha *= 0.45;
     if (it.unsaved) alpha *= 0.7;
     const k = 1 + 0.03 * it.breath.v + 0.05 * it.near, change = changeFor(amount, it.near, it.breath.v);
+    if (garden && !isOpen) { gardenItems.push({ it, alpha: Math.min(1, alpha), scale: k, twinAt: lit.has('❖') && mode !== 'open' ? 2 * target.x - it.x : undefined }); continue; }
 
     if (lit.has('❖') && !isOpen && mode !== 'open') {
       const s = spriteOf(it);
@@ -328,6 +341,11 @@ function draw() {
     ctx.restore();
   }
   ctx.globalCompositeOperation = 'source-over';
+  if (garden) {
+    garden.sync([...(ground ? [ground] : []), ...items]);
+    garden.render({ cam, items: gardenItems, pointer, now: performance.now() });
+    gardenItems = [];
+  }
   placeMarks();
 }
 function placeMarks() {
@@ -600,7 +618,7 @@ for (const c of channels) {
     if (!open.has(g)) {
       notice(`${g} ${CLOSED}`, 9000);
       triggerShift(g);
-      $('say-log').classList.add('called'); setTimeout(() => $('say-log').classList.remove('called'), vary(4200, 0.4));
+      $('say-log')?.classList.add('called'); setTimeout(() => $('say-log')?.classList.remove('called'), vary(4200, 0.4));
       return;
     }
     if (g === '☍') { setPolarity(!view.bright); triggerShift(g); notice(`${MESSAGES[g]} ${view.bright ? 'vibrant crystal-bright modes' : 'shadow tones'}`, 9000); return; }
@@ -669,19 +687,20 @@ function weave() {
   retarget(true);
 }
 $('weave').addEventListener('click', weave);
-$('say-weave').addEventListener('click', () => { if (words.value.trim()) weave(); else words.focus(); });
-$('say-log').addEventListener('click', () => words.focus());
+
+$('say-weave')?.addEventListener('click', () => { if (words.value.trim()) weave(); else words.focus(); });
+$('say-log')?.addEventListener('click', () => words.focus());
 words.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); weave(); } });
 
 function setView(key, other) {
   view[key] = !view[key];
   if (!view[key] && !view[other]) view[other] = true;
-  $('say-fractals').setAttribute('aria-pressed', String(view.fractals)); $('say-constellations').setAttribute('aria-pressed', String(view.constellations));
+  $('say-fractals')?.setAttribute('aria-pressed', String(view.fractals)); $('say-constellations')?.setAttribute('aria-pressed', String(view.constellations));
   try { localStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch {   }
   dirty = true; wake();
 }
-$('say-fractals').addEventListener('click', () => setView('fractals', 'constellations'));
-$('say-constellations').addEventListener('click', () => setView('constellations', 'fractals'));
+$('say-fractals')?.addEventListener('click', () => setView('fractals', 'constellations'));
+$('say-constellations')?.addEventListener('click', () => setView('constellations', 'fractals'));
 
 const hold = { on: false, start: 0, falling: false, fallStart: 0, fallFrom: 0, fallDur: 1, done: false, glyph: '❖' };
 let resTimer = 0, resFrom = 0;
@@ -821,7 +840,7 @@ document.addEventListener('visibilitychange', () => { lastFrame = 0; wake(); });
 reduced.addEventListener('change', () => { dirty = true; wake(); });
 
 try { const saved = JSON.parse(localStorage.getItem(VIEW_KEY)); if (saved) { view.bright = saved.bright === true; if ((saved.fractals === false) !== (saved.constellations === false)) { view.fractals = saved.fractals !== false; view.constellations = saved.constellations !== false; } } } catch {   }
-$('say-fractals').setAttribute('aria-pressed', String(view.fractals)); $('say-constellations').setAttribute('aria-pressed', String(view.constellations));
+$('say-fractals')?.setAttribute('aria-pressed', String(view.fractals)); $('say-constellations')?.setAttribute('aria-pressed', String(view.constellations));
 for (let i = 0; i < levels.length; i++) levels[i] = newBreath();
 if (view.bright) body.dataset.polarity = 'crystal';
 { const form = buildForm({ text: $('line').textContent }); ground = { id: '4o', form, r: form.radius, sprite: null, breath: newBreath() }; }

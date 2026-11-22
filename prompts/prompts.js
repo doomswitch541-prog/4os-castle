@@ -99,7 +99,7 @@ function select(a) {
   if (a.dataset.does) { const note = document.createElement('span'); note.className = 'note'; note.textContent = a.dataset.does; told.append(note); }
   for (const p of answers) { const back = document.createElement('button'); back.type = 'button'; back.className = 'back'; back.dataset.to = p.id; back.textContent = words(p); told.append(back); }
 
-  link = { from: a, to: answers, start: performance.now(), dur: still() ? 0 : vary(520, 0.7), ease: curve() };
+  link = { from: a, to: answers, start: performance.now(), dur: still() ? 0 : vary(320, 0.7), ease: curve() };
   dirty = true;
 }
 for (const a of phrases) {
@@ -122,7 +122,7 @@ function flyTo(el) {
   const r = el.getBoundingClientRect();
   const to = clamp(scrollY + r.top - innerHeight * 0.38, 0, document.documentElement.scrollHeight - innerHeight);
   if (still()) { scrollTo(0, to); return; }
-  flight = { from: scrollY, to, start: performance.now(), dur: vary(clamp(Math.abs(to - scrollY) * 0.9, 380, 1500)), ease: curve() };
+  flight = { from: scrollY, to, start: performance.now(), dur: vary(clamp(Math.abs(to - scrollY) * 0.45, 220, 700)), ease: curve() };
 }
 
 function pick(tick) {
@@ -205,7 +205,7 @@ function goTo(i, focusDown = false, plane = null) {
 function flyBy(delta) {
   const to = clamp(scrollY + delta, 0, document.documentElement.scrollHeight - innerHeight);
   if (still() || Math.abs(to - scrollY) < 2) { flight = null; scrollTo(0, to); return; }
-  flight = { from: scrollY, to, start: performance.now(), dur: vary(clamp(Math.abs(to - scrollY) * 1.1, 260, 1300)), ease: curve() };
+  flight = { from: scrollY, to, start: performance.now(), dur: vary(clamp(Math.abs(to - scrollY) * 0.5, 180, 650)), ease: curve() };
 }
 function step(d) {
   if (at < 0) return goTo(0, true);
@@ -222,7 +222,8 @@ begin.addEventListener('click', () => goTo(0, true));
 
 const auto = $('#auto');
 let autoTimer = 0;
-function autoWait(i) { return vary(clamp(1200 + stops[i].el.textContent.length * 36, 1800, 14000), 0.5); }
+
+function autoWait(i) { return vary(clamp(600 + stops[i].el.textContent.length * 18, 900, 6000), 0.5); }
 function setAuto(on) {
   clearTimeout(autoTimer); autoTimer = 0;
   auto.setAttribute('aria-pressed', String(on));

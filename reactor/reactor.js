@@ -58,11 +58,18 @@ function measure() {
 }
 function measureBoxes() {
   const c = els.core.getBoundingClientRect();
+  const before = core;
   core = { x: c.left + c.width / 2, y: c.top + c.height / 2, r: clamp(Math.min(c.width, c.height) * 0.42, 50, 260) };
+
+  const mx = core.x - before.x, my = core.y - before.y;
+  if (before.r && (Math.abs(mx) > 0.5 || Math.abs(my) > 0.5)) {
+    for (const p of parts) { p.x += mx; p.y += my; if (p.ox !== undefined) { p.ox += mx; p.oy += my; } if (p.floor !== undefined) p.floor += my; }
+    for (const r of ripples) { r.x += mx; r.y += my; }
+  }
   wordsBox = els.words.getBoundingClientRect();
 
   const was = quiet.map(r => `${r.left|0},${r.top|0},${r.width|0},${r.height|0}`).join();
-  quiet = [...document.querySelectorAll('.field .field-line, .field .toss-line, .field .part, #answer:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width && r.bottom > 0 && r.top < H);
+  quiet = [...document.querySelectorAll('.field .field-line, .field .toss-line, .field .part, #answer:not([hidden]), .say .title, .say .lead, .say .part, .say .quiet, .say .glyphs-line, .say .glyph, .say .engine, .rest p, .rest .part, .rest li')].map(e => e.getBoundingClientRect()).filter(r => r.width && r.bottom > 0 && r.top < H);
   if (quiet.map(r => `${r.left|0},${r.top|0},${r.width|0},${r.height|0}`).join() !== was) wallDirty = true;
   const f = els.field.getBoundingClientRect(), left = f.width ? Math.round(f.left) : 0;
   if (left !== fieldLeft) { fieldLeft = left; settledDirty = wallDirty = true; }
@@ -432,6 +439,8 @@ async function pulse(g) {
   if (wordsBox && !looped) spawnText(words, { x: wordsBox.left + wordsBox.width / 2, y: wordsBox.top + wordsBox.height / 2, w: wordsBox.width * 0.8, h: wordsBox.height * 0.6 }, core, [236, 230, 220], 30);
   render(p);
   settledDirty = true;
+
+  if (matchMedia('(max-width: 860px)').matches) { const top = els.core.getBoundingClientRect().top + scrollY - 58; scrollTo({ top, behavior: reduced ? 'auto' : 'smooth' }); needMeasure = true; }
   if (engine.up && els.model?.value) await stream(p);
   else offline(p);
 }

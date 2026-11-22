@@ -100,6 +100,14 @@ body.reactor { margin: 0; min-height: 100vh; background: var(--bg); color: var(-
   .title { order: 1; } .lead { order: 2; } .part-frame { order: 3; } .frame-line { order: 4; }
   .part-field { order: 5; } .toss-line { order: 6; } #words { order: 7; }
   .glyphs-line { order: 8; } .glyphs { order: 9; } .engine { order: 10; }
-  .core { order: 11; min-height: 46vh; } .answer { order: 12; max-height: none; overflow: visible; } .grow-line { order: 13; } .rest { order: 14; }
+  .core { order: 11; min-height: 40vh; } .answer { order: 12; max-height: none; overflow: visible; } .grow-line { order: 13; } .rest { order: 14; }
+  .title { font-size: 22px; margin-bottom: 6px; }
+  .lead { font-size: 15.5px; margin-bottom: 10px; }
+  .part { margin: 10px 0 4px; font-size: 12px; }
+  .quiet, .toss-line, .glyphs-line { font-size: 14px; margin-bottom: 8px; }
+  #words { min-height: 64px; font-size: 17px; }
+  .glyph { grid-template-columns: 38px 1fr; padding: 6px 8px 6px 2px; font-size: 14px; line-height: 1.4; }
+  .glyph .g { font-size: 24px; }
+  .engine { margin-top: 6px; }
 }
 @media (prefers-reduced-motion: reduce) { .glyph { transition: none; } }

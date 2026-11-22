@@ -122,7 +122,7 @@ const breakWords = splitWords(byId.transformation.words);
 })();
 
 (function linkJournaling() {
-  const words = byId.resonators.words, phrase = '“cosmic journaling” webtool';
+  const words = byId.resonators.words, phrase = 'Journaling as ACCESS to resonance channels.';
   const walker = document.createTreeWalker(words, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode, at = node.textContent.indexOf(phrase);
@@ -289,7 +289,8 @@ function layout() {
   const H = 2 * HOLD * Math.tan(FOV / 2 * Math.PI / 180), W = H * w / h, px = H / h;
   view = { H, W, px };
   if (!depth) {
-    for (const st of stations) if (st.sculpture) { st.sculpture.group.scale.setScalar(H * 0.19); st.sculpture.group.position.set(0, H * 0.27, st.z); }
+
+    for (const st of stations) if (st.sculpture) { st.sculpture.group.scale.setScalar(H * 0.31); st.sculpture.group.position.set(0, H * 0.2, st.z); }
     measureScroll();
     return;
   }
@@ -384,7 +385,7 @@ const sheetRows = stations.map(st => {
   return { a, p };
 });
 
-for (const [href, glyph, words] of [['/', '🌀', 'an interactive sculpture that visually breathes'], ['/portals', '🖋️', '“cosmic journaling” webtool']]) {
+for (const [href, glyph, words] of [['/', '🌀', 'an interactive sculpture that visually breathes'], ['/portals', '🖋️', 'Journaling as ACCESS to resonance channels.']]) {
   const a = make('a', 'sheet-row elsewhere', sheetList); a.href = sitePath(href);
   make('span', 'sheet-glyph', a).textContent = glyph; make('span', 'sheet-label', a).textContent = `${words} ↗`;
 }
