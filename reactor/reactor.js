@@ -112,7 +112,7 @@ function beatHearts(t, dt) {
     h.env *= Math.exp(-dt * 4.5);
     if (t >= h.next) {
       h.env = 1;
-      h.period = clamp(h.period * (1 + (Math.random() - 0.5) * 0.2), BASE[h.g] * 0.75, BASE[h.g] * 1.32);
+      h.period = t < tunedUntil ? FOURTHS[h.g] : clamp(h.period * (1 + (Math.random() - 0.5) * 0.2), BASE[h.g] * 0.75, BASE[h.g] * 1.32);
       h.next = t + h.period * tempo;
       const at = buttonAt[h.g];
       if (at) ripple(at.x, at.y, COLOR[h.g], 0.6, 190, 2.8);
@@ -123,7 +123,43 @@ function beatHearts(t, dt) {
 }
 const heartNow = () => hearts.reduce((s, h) => s + h.env, 0) / 2;
 
+const PAIRS = [['♇', '☍', 47.5], ['♇', '❖', 62.7], ['☍', '❖', 82.5]];
+const ALL_THREE = 1567.5;
+const FIB = [89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946, 17711, 28657, 46368, 75025];
+const FOURTHS = { '♇': 2.5 * 3 / 4, '☍': 2.5, '❖': 2.5 * 4 / 3 };
+const GOLD = [241, 203, 150];
+let tunedUntil = 0, flash = 0, lastWatched = mem.watched;
+const secrets = [];
+function together(gs, t, kind) {
+  const tempo = streaming ? 0.6 : 1;
+  for (const h of hearts) {
+    if (!gs.includes(h.g)) continue;
+    h.env = 1; h.next = t + h.period * tempo;
+    const at = buttonAt[h.g];
+    if (at) ripple(at.x, at.y, COLOR[h.g], 0.9, 210, 3.2);
+    ripple(core.x, core.y, COLOR[h.g], 0.8, 150 + 40 * gs.indexOf(h.g), 3.6);
+    spawnGlyph(h.g); spawnGlyph(h.g);
+  }
+  secrets.push({ kind, who: gs.join(''), at: Math.round(mem.watched * 10) / 10 });
+  if (secrets.length > 60) secrets.shift();
+}
+function secretBeats(prev, cur, t) {
+  if (!(cur > prev)) return;
+  const crossed = P => Math.floor(cur / P) > Math.floor(prev / P);
+  if (FIB.some(f => f > prev && f <= cur)) {
+    for (const h of hearts) h.period = FOURTHS[h.g];
+    tunedUntil = t + 9;
+    together(GLYPHS, t, 'golden');
+    ripple(core.x, core.y, GOLD, 1.6, 110, 6);
+    flash = 1;
+    return;
+  }
+  if (crossed(ALL_THREE)) { together(GLYPHS, t, 'all three'); flash = 1; return; }
+  for (const [a, b, P] of PAIRS) if (crossed(P)) { together([a, b], t, `pair ${a}${b}`); flash = Math.max(flash, 0.45); }
+}
+
 const mode = { g: null, amt: 0, goal: 0, until: 0 };
+let hush = 1;
 function setMode(g, hold = 18) { mode.g = g; mode.goal = 1; mode.until = now + hold; }
 const parts = [];
 const MAXP = 380;
@@ -160,10 +196,14 @@ function stepStorm(dt) {
     const src = [...(shownPulse()?.answer || els.words.value || '')].filter(c => c.trim());
     if (src.length) for (let i = 0; i < 6 && parts.length; i++) { const p = parts[(Math.random() * parts.length) | 0]; if (!GLYPHS.includes(p.ch)) p.ch = src[(Math.random() * src.length) | 0]; }
   }
+  hush += (1 - hush) * (1 - Math.exp(-dt * 1.8));
+  const kk = k * hush;
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
     p.life += dt;
     if (p.life > p.max) { parts.splice(i, 1); continue; }
+    if (p.kind && moveKind(p, dt, kk)) { parts.splice(i, 1); continue; }
+    if (p.kind) continue;
     const dx = p.x - core.x, dy = p.y - core.y, d = Math.sqrt(dx * dx + dy * dy) + 0.001, ux = dx / d, uy = dy / d;
     let ax = -uy * 16 - ux * (d - shell) * 0.12, ay = ux * 16 - uy * (d - shell) * 0.12;
     if (mode.g === '♇') {
@@ -180,7 +220,7 @@ function stepStorm(dt) {
     if (pointer) { const px = p.x - pointer.x, py = p.y - pointer.y, pd = px * px + py * py; if (pd < 6400) { ax += px / Math.sqrt(pd + 1) * 160; ay += py / Math.sqrt(pd + 1) * 160; } }
     const damp = Math.exp(-dt * 1.6);
     p.vx = (p.vx + ax * dt) * damp; p.vy = (p.vy + ay * dt) * damp;
-    p.x += p.vx * dt * k; p.y += p.vy * dt * k;
+    p.x += p.vx * dt * kk; p.y += p.vy * dt * kk;
   }
 }
 
@@ -458,13 +498,68 @@ function offline(p) {
 
 els.words.value = mem.draft;
 let typedLen = els.words.value.length;
+
+const INK = [236, 230, 220];
+let lastTyped = '', run = 0;
+const boxAt = () => ({ x: wordsBox.right - 30 - Math.random() * 60, y: wordsBox.top + wordsBox.height * (0.3 + Math.random() * 0.4) });
+function moveKind(p, dt, k) {
+  if (p.kind === 'drop') {
+    p.vy += 900 * dt; p.x += p.vx * dt * k; p.y += p.vy * dt * k;
+    if (p.y >= p.floor) { ripple(p.x, p.floor, p.rgb, 0.7, 170, 1.8); return true; }
+  } else if (p.kind === 'orbit') {
+    p.ang += dt * (0.5 + p.val * 0.11) * k;
+    p.x = core.x + Math.cos(p.ang) * p.rad; p.y = core.y + Math.sin(p.ang) * p.rad * 0.6;
+  } else if (p.kind === 'float') {
+    p.y -= 36 * dt * k; p.x += Math.sin(now * 1.3 + p.seed) * 14 * dt * k;
+  } else if (p.kind === 'boomerang' || p.kind === 'home') {
+    const back = p.kind === 'home' || p.life > p.turn, tx = back ? p.ox : core.x, ty = back ? p.oy : core.y;
+    p.vx = (p.vx + (tx - p.x) * 3.4 * dt) * Math.exp(-dt * 2.4); p.vy = (p.vy + (ty - p.y) * 3.4 * dt) * Math.exp(-dt * 2.4);
+    p.x += p.vx * dt * k; p.y += p.vy * dt * k;
+    if (p.kind === 'home' && Math.hypot(tx - p.x, ty - p.y) < 12) return true;
+  } else if (p.kind === 'spark') {
+    p.vx *= Math.exp(-dt * 2.6); p.vy *= Math.exp(-dt * 2.6); p.x += p.vx * dt * k; p.y += p.vy * dt * k;
+  }
+  return false;
+}
+function throwChar(ch) {
+  if (!wordsBox) return;
+  const at = boxAt(), tint = mode.g ? COLOR[mode.g] : COLOR['❖'];
+  run = ch === lastTyped && /\S/.test(ch) ? run + 1 : 1; lastTyped = ch;
+  if (run >= 3) {
+    ripple(core.x, core.y, tint, Math.min(2.4, 0.35 * run), 210, 2.2);
+    for (let j = 0; j < Math.min(run, 9); j++) { const a = Math.random() * TAU, sp = 90 + run * 12; spawn({ x: core.x, y: core.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ch, rgb: tint, size: 16 + Math.min(run, 12), max: 3.5 }); }
+    return;
+  }
+  if (ch === ' ') return ripple(at.x, at.y, tint, 0.35, 120, 1.2);
+  if (ch === '\n') { for (const f of [0.15, 0.5, 0.85]) ripple(wordsBox.left + wordsBox.width * f, wordsBox.bottom, tint, 0.7, 260, 2.2); return; }
+  if (GLYPHS.includes(ch)) { setMode(ch, 2.5); ripple(core.x, core.y, COLOR[ch], 1, 230, 2.6); spawnGlyph(ch); spawnGlyph(ch); return; }
+  if (ch === ',' || ch === ';' || ch === '—') { hush = 0.22; ripple(at.x, at.y, tint, 0.25, 70, 1.6); return; }
+  if (ch === '.') return spawn({ kind: 'drop', x: at.x, y: at.y, vx: (Math.random() - 0.5) * 30, vy: -60, floor: Math.min(H - 28, core.y + core.r * 1.5), ch: '•', rgb: INK, size: 18, max: 4 });
+  if (ch === '!') { for (let j = 0; j < 9; j++) { const a = (j / 9) * TAU + Math.random() * 0.3, sp = 260 + Math.random() * 120; spawn({ kind: 'spark', x: at.x, y: at.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ch: j % 3 ? '·' : '!', rgb: COLOR['☍'], size: 16, max: 1.1 }); } return ripple(at.x, at.y, COLOR['☍'], 0.8, 260, 1.4); }
+  if (ch === '?') return spawn({ kind: 'boomerang', x: at.x, y: at.y, ox: at.x, oy: at.y, vx: 0, vy: 0, turn: 1.1, ch: '?', rgb: COLOR['♇'], size: 22, max: 3 });
+  if (/[0-9]/.test(ch)) { const val = Number(ch); return spawn({ kind: 'orbit', x: at.x, y: at.y, ang: Math.random() * TAU, rad: core.r * (0.35 + val * 0.07), val, ch, rgb: COLOR['❖'], size: 15, max: 14 }); }
+  if (/\p{Extended_Pictographic}/u.test(ch)) return spawn({ kind: 'float', x: at.x, y: at.y, vx: 0, vy: 0, ch, rgb: INK, size: 26, max: 6 });
+  if (/\p{Lu}/u.test(ch)) { spawnText(ch, { x: at.x, y: at.y, w: 10, h: 10 }, core, INK, 1); const p = parts.at(-1); if (p) { p.size = 26; p.vx *= 1.6; p.vy *= 1.6; } return ripple(core.x, core.y, tint, 0.6, 200, 1.6); }
+  spawnText(ch, { x: at.x, y: at.y, w: 24, h: 12 }, core, INK, 1);
+  ripple(at.x, at.y, tint, 0.25, 150, 1.2);
+}
+function pullHome(n) {
+  if (!wordsBox) return;
+  let pulled = 0;
+  for (let i = parts.length - 1; i >= 0 && pulled < n; i--) {
+    const p = parts[i];
+    if (p.kind || GLYPHS.includes(p.ch)) continue;
+    const at = boxAt();
+    Object.assign(p, { kind: 'home', ox: at.x, oy: at.y, max: p.life + 1.6 });
+    pulled++;
+  }
+}
 els.words.addEventListener('input', () => {
   const v = els.words.value;
-  if (v.length > typedLen && wordsBox) {
-    const added = v.slice(typedLen).slice(-4);
-    spawnText(added, { x: wordsBox.right - 30, y: wordsBox.top + wordsBox.height / 2, w: 40, h: wordsBox.height * 0.6 }, core, [236, 230, 220], 4);
-    ripple(wordsBox.right - 20, wordsBox.top + wordsBox.height / 2, mode.g ? COLOR[mode.g] : COLOR['❖'], 0.3, 150, 1.4);
-  }
+  if (v.length > typedLen) {
+    const caret = els.words.selectionStart ?? v.length, added = v.slice(Math.max(0, caret - (v.length - typedLen)), caret);
+    for (const ch of [...added].filter(c => c !== '\uFE0F').slice(-24)) throwChar(ch);
+  } else if (v.length < typedLen) pullHome(Math.min(6, typedLen - v.length));
   typedLen = v.length;
   mem.draft = v.slice(0, WORDS_MAX); saveSoon();
 });
@@ -482,6 +577,8 @@ function frame(ms) {
   const dt = Math.min(0.05, (ms - last) / 1000); last = ms; now = ms / 1000;
   if (needMeasure) { measureBoxes(); needMeasure = false; }
   if (document.visibilityState === 'visible') mem.watched += dt;
+  secretBeats(lastWatched, mem.watched, now); lastWatched = mem.watched;
+  flash *= Math.exp(-dt * 1.4);
   beatHearts(now, dt);
   if (!streaming && mode.goal > 0.35 && now > mode.until) mode.goal = 0.35;
   mode.amt += (mode.goal - mode.amt) * (1 - Math.exp(-dt * 1.6));
@@ -490,7 +587,7 @@ function frame(ms) {
   if (++frameN % 2 === 0 || !img) paintTexture(now);
   if (now - wallAt > 0.5) { wallAt = now; refreshWall(); }
   gx.globalAlpha = 1; gx.drawImage(tex, 0, 0, W + TEX, H + TEX);
-  const glow = clamp(0.06 + heartNow() * 0.16 + (streaming ? 0.08 : 0), 0, 0.4), c = mode.g ? COLOR[mode.g] : COLOR['❖'];
+  const glow = clamp(0.06 + heartNow() * 0.16 + flash * 0.22 + (streaming ? 0.08 : 0), 0, 0.55), c = mode.g ? COLOR[mode.g] : COLOR['❖'];
   const grad = gx.createRadialGradient(core.x, core.y, 0, core.x, core.y, core.r * 1.3);
   grad.addColorStop(0, `rgba(${c},${glow})`); grad.addColorStop(1, `rgba(${c},0)`);
   gx.fillStyle = grad; gx.fillRect(core.x - core.r * 1.3, core.y - core.r * 1.3, core.r * 2.6, core.r * 2.6);
@@ -509,6 +606,8 @@ requestAnimationFrame(frame);
 
 window.__reactor = {
   mem: () => mem, engine: () => ({ up: engine.up, models: engine.models, loaded: Boolean(engine.mod) }), parts: () => parts.length, mode: () => ({ g: mode.g, amt: mode.amt }),
-  streaming: () => Boolean(streaming), shown: () => shown, pulse, stop, showPulse, hearts: () => hearts.map(h => ({ g: h.g, period: h.period })),
+  streaming: () => Boolean(streaming), shown: () => shown, pulse, stop, showPulse, hearts: () => hearts.map(h => ({ g: h.g, period: h.period, env: h.env })),
+  secrets: () => secrets.slice(), tuned: () => now < tunedUntil, hush: () => hush,
+  kinds: () => parts.reduce((m, p) => { const k = p.kind || 'mote'; m[k] = (m[k] || 0) + 1; return m; }, {}),
   depths: () => mem.pulses.map(depthOf), cost: () => cost, core: () => ({ ...core }), watch: s => { mem.watched += s; },
 };

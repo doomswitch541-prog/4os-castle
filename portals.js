@@ -234,7 +234,7 @@ function resize() {
 function spriteOf(it, q = spriteQ) {
   const viewKey = `${view.fractals}${view.constellations}${view.bright}`;
   if (it.sprite && it.sprite.q === q && it.sprite.view === viewKey) return it.sprite;
-  const R = Math.max(it.r, it.form.gen.length > 1 ? fractalOf(it.form).reach : 0) + 14, size = Math.ceil(2 * R * q), c = document.createElement('canvas');
+  const R = Math.max(it.r, it.form.lsys ? fractalOf(it.form).reach : 0) + 14, size = Math.ceil(2 * R * q), c = document.createElement('canvas');
   c.width = c.height = size;
   const x = c.getContext('2d');
   x.scale(q, q); x.translate(R, R); x.globalCompositeOperation = 'lighter';

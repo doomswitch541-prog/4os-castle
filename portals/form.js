@@ -55,33 +55,46 @@ export function buildForm(piece) {
     for (const w of distinctWords(piece.text)) { const p = byId.get(w.id); if (p) saved.set(w.label, p); }
   }
 
-  let x = 0, y = 0, heading = rnd(1) * TAU;
-  const start = { x: 0, y: 0, phrase: 0 };
+  const units = [];
   phrases.forEach((p, i) => {
-    const lead = W[p.from], pace = median(W.slice(p.from, p.to + 1).map(w => w.speed).filter(Boolean)) || a.medianSpeed;
-    const side = a.traced ? (Math.round(lead.pause + pace) % 2 ? 1 : -1) : (rnd(p.from + 7) < 0.5 ? 1 : -1);
-    const turn = side * clamp(1.75 - pace / 260, 0.55, 1.6);
+    let from = p.from;
     for (let k = p.from; k <= p.to; k++) {
-      const w = W[k], j = k - p.from, spot = saved.get(w.text);
+      const size = k - from + 1, stop = /[,.;:!?—]$/.test(W[k].text) && size >= 2;
+      if (k === p.to || size >= 4 || stop) { units.push({ from, to: k, phrase: i }); from = k + 1; }
+    }
+  });
+  const hashWord = t => { let h = 7; for (const c of t) h = (h * 31 + c.codePointAt(0)) >>> 0; return h; };
+  let x = 0, y = 0, heading = -Math.PI / 2, stemX = 0, stemH = 0, stemTop = 0, lastSide = rnd(1) < 0.5 ? 1 : -1;
+  const start = { x: 0, y: 0, phrase: 0 };
+  const sides = [];
+  units.forEach((u, i) => {
+    const lead = W[u.from], newPhrase = !i || units[i - 1].phrase !== u.phrase;
+    if (i && newPhrase && lead.nl) { stemX += 150 + rnd(i + 3) * 60; stemH = 0; }
+    const want = a.traced ? (Math.round(lead.pause + (lead.speed || 0)) % 2 ? 1 : -1) : (rnd(u.from + 7) < 0.5 ? 1 : -1);
+    const s = i && want === lastSide ? -want : want;
+    lastSide = s; sides.push(s);
+    stemH += !i ? 12 : a.traced && newPhrase ? Math.min(300, 26 + 30 * Math.log2(1 + lead.pause / 1000)) : 18 + 4 * (units[i - 1].to - units[i - 1].from + 1);
+    stemTop = Math.max(stemTop, stemH);
+    const swing = a.traced ? clamp(0.5 + 0.22 * Math.log2(1 + lead.pause / 1500), 0.5, 1.25) : 0.55 + 0.35 * rnd(u.from + 11);
+    x = stemX; y = -stemH;
+    for (let k = u.from; k <= u.to; k++) {
+      const w = W[k], j = k - u.from, spot = saved.get(w.text);
       if (spot) {
         const nx = (spot.x - 0.5) * 520, ny = (spot.y - 0.5) * 403;
         if (k) heading = Math.atan2(ny - y, nx - x);
         x = nx; y = ny; saved.delete(w.text);
       } else {
-        let step;
-        if (!j) {
-          if (i) heading += side * (0.5 + ((lead.pause * 0.000618) % 1) * 1.7) + (lead.nl ? 0.9 : 0);
-          step = i ? Math.min(340, 30 + 34 * Math.log2(1 + lead.pause / 1000)) : 16;
-        } else {
-          heading += turn / (1 + 0.05 * j);
-          step = (6 + 9 * Math.log2(1 + w.pause / 120)) * (1 + 0.035 * j);
-        }
+
+        heading = -Math.PI / 2 + s * swing + ((hashWord(w.text) % 100) / 100 - 0.5) * 0.24;
+        if (a.traced && w.rewritten) heading -= s * 0.55;
+        const step = j ? (a.traced ? 8 + 9 * Math.log2(1 + w.pause / 120) : 12 + Math.min([...w.text].length, 10)) : 14;
         x += Math.cos(heading) * step; y += Math.sin(heading) * step;
       }
 
-      const named = wordGlyph(w.text), glyph = named || (!j ? p.glyph : null);
-      if (named) { count(named); if (!j && p.glyph) form.glyphs[p.glyph]--; }
-      form.nodes.push({ x, y, word: w.text, phrase: i, lead: !j, glyph, typed: w.typed, heading, pause: w.pause });
+      const p = phrases[u.phrase], lead1 = k === p.from;
+      const named = wordGlyph(w.text), glyph = named || (lead1 ? p.glyph : null);
+      if (named) { count(named); if (lead1 && p.glyph) form.glyphs[p.glyph]--; }
+      form.nodes.push({ x, y, word: w.text, phrase: u.phrase, unit: i, lead: lead1, branch: !j, glyph, typed: w.typed, heading, pause: w.pause, stem: { x: stemX, y: -stemH } });
       if (w.typed) for (const c of w.text) if (CHANNEL_GLYPHS.includes(c)) count(c);
     }
   });
@@ -91,7 +104,8 @@ export function buildForm(piece) {
   const cx = form.nodes.reduce((s, p) => s + p.x, 0) / n, cy = form.nodes.reduce((s, p) => s + p.y, 0) / n;
   const reach = Math.max(1, ...all.map(p => Math.hypot(p.x - cx, p.y - cy)));
   const k = Math.min(clamp(46 + 15 * Math.sqrt(n), 60, 250) / reach, 1.6);
-  for (const p of all) { p.x = (p.x - cx) * k; p.y = (p.y - cy) * k; }
+  for (const p of [...all, ...form.nodes.map(n => n.stem)]) { p.x = (p.x - cx) * k; p.y = (p.y - cy) * k; }
+  form.stemTop = stemTop * k;
   form.radius = Math.max(26, reach * k) + 16;
   form.path = all; form.start = start; form.end = end; form.phrases = phrases;
 
@@ -132,5 +146,17 @@ export function buildForm(piece) {
     form.gen = form.anchors.map(p => [(p.x - gx) / form.spread, (p.y - gy) / form.spread]);
   }
   form.twist = rnd(5) * TAU;
+
+  const turn = (0.32 + 0.3 * form.mood);
+  const tokens = ['F'], text = ['F'];
+  units.slice(0, 4).forEach((p, i) => {
+    const words = p.to - p.from + 1, fs = words >= 4 ? 2 : 1, ang = sides[i] * turn * (0.75 + 0.5 * clamp(a.traced ? Math.log2(1 + W[p.from].pause / 1500) : rnd(p.from + 13), 0, 1));
+    tokens.push({ open: i }, ang, ...Array(fs).fill('F'), { close: i }, 'F');
+    text.push(`[${sides[i] > 0 ? '+' : '−'}${'F'.repeat(fs)}]F`);
+  });
+  const mainF = 1 + Math.min(4, units.length), allF = tokens.filter(t => t === 'F').length;
+  let gens = form.depth;
+  while (gens > 2 && allF ** gens > 3000) gens--;
+  form.lsys = { tokens, rule: `F → ${text.join('')}`, shrink: 1 / mainF, gens, root: { x: form.start.x, y: form.start.y }, len: Math.max(40, form.stemTop || form.radius) };
   return form;
 }

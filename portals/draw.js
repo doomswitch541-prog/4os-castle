@@ -35,76 +35,85 @@ function glyphText(ctx, text, x, y, size, colour, glow) {
   ctx.shadowBlur = 0;
 }
 
-const kept = new WeakMap(), measured = new WeakMap();
-
-function measure(form) {
-  let m = measured.get(form);
-  if (m) return m;
-  const room = form.gen.map((p, i) => clamp(Math.min(...form.gen.map((q, j) => (i === j ? 9 : Math.hypot(p[0] - q[0], p[1] - q[1])))), 0.16, 1.1));
-  m = { share: form.anchors.map((a, i) => clamp(room[i] * (0.5 + 0.3 * a.weight), 0.3, 0.46)), sign: room.map(r => clamp(r * 0.6, 0.24, 0.34)) };
-  measured.set(form, m);
-  return m;
-}
-
-function eachCopy(form, accept, emit) {
-  const { share, sign } = measure(form);
-  const grow = (cx, cy, scale, turn, level, flip) => {
-    if (!accept(cx, cy, scale, level)) return;
-    const bend = (level - 1) * 0.42 * form.curl;
-    const pts = form.gen.map(([gx, gy]) => { const r = Math.hypot(gx, gy), a = Math.atan2(gy * flip, gx) + turn + bend * r; return { x: cx + Math.cos(a) * r * scale, y: cy + Math.sin(a) * r * scale }; });
-    emit(level, pts, scale, sign);
-    pts.forEach((p, i) => grow(p.x, p.y, scale * share[i], turn + Math.atan2(form.gen[i][1] * flip, form.gen[i][0]) + form.twist, level + 1, -flip));
+const kept = new WeakMap();
+function grow(form, maxGen, accept, budgetMax) {
+  const L = form.lsys, levels = Array.from({ length: maxGen + 1 }, () => ({ path: new Path2D(), glyphs: [] }));
+  let budget = budgetMax, reach = 0;
+  const syms = form.anchors.length ? form.anchors.map(a => a.sym) : ['❖'];
+  const line = (gen, x, y, a, len) => {
+    const ex = x + Math.cos(a) * len, ey = y + Math.sin(a) * len;
+    levels[gen].path.moveTo(x, y); levels[gen].path.lineTo(ex, ey);
+    reach = Math.max(reach, Math.hypot(ex, ey));
+    return { x: ex, y: ey };
   };
-  form.anchors.forEach((a, i) => grow(a.x, a.y, form.spread * share[i] * 1.1, Math.atan2(a.y - form.centre.y, a.x - form.centre.x) + form.twist, 1, 1));
+
+  const F = (x, y, a, len, gen) => {
+    const end = line(gen, x, y, a, len);
+    if (gen >= maxGen || budget <= 0 || !accept(x, y, len, gen)) return end;
+    budget--;
+    let cx = x, cy = y, ca = a;
+    const stack = [];
+    for (const t of L.tokens) {
+      if (t === 'F') { const e = F(cx, cy, ca, len * L.shrink, gen + 1); cx = e.x; cy = e.y; }
+      else if (typeof t === 'number') ca += t;
+      else if (t.open !== undefined) stack.push([cx, cy, ca]);
+      else if (t.close !== undefined) {
+        levels[Math.min(maxGen, gen + 1)].glyphs.push({ x: cx, y: cy, size: Math.max(4, len * L.shrink * 0.55), glyph: syms[t.close % syms.length] });
+        [cx, cy, ca] = stack.pop();
+      }
+    }
+    return end;
+  };
+  F(L.root.x, L.root.y, -Math.PI / 2, L.len, 0);
+  levels.reach = reach;
+  return levels;
 }
 
 export function fractalOf(form) {
   let f = kept.get(form);
   if (f) return f;
-  f = Array.from({ length: form.depth + 1 }, () => ({ path: new Path2D(), glyphs: [] }));
-  f.reach = 0;
-  let budget = 5200;
-  eachCopy(form, (cx, cy, scale, level) => level <= form.depth && scale >= 1.1 && budget-- > 0, (level, pts, scale, sign) => {
-    through(f[level].path, level % 3 ? pts : [...pts, pts[0]]);
-    pts.forEach((p, i) => { f.reach = Math.max(f.reach, Math.hypot(p.x, p.y)); f[level].glyphs.push({ x: p.x, y: p.y, size: scale * sign[i], glyph: form.anchors[i].sym }); });
-  });
+  f = grow(form, form.lsys.gens, (x, y, len) => len >= 1.2, 6000);
   kept.set(form, f);
   return f;
 }
 
 function liveFractal(form, o) {
-  const v = o.live, levels = [];
-  let budget = 2400;
-  eachCopy(form, (cx, cy, scale, level) => {
-    if (level > 9 || budget <= 0) return false;
-    const reach = scale * 2;
-    if (cx + reach < v.x0 || cx - reach > v.x1 || cy + reach < v.y0 || cy - reach > v.y1) return false;
-    const close = v.pointer && Math.hypot(cx - v.pointer.x, cy - v.pointer.y) < 120 * o.px + scale;
-    if (level > 1 && scale / o.px < (close ? 1.5 : 3.6)) return false;
-    budget--; return true;
-  }, (level, pts, scale, sign) => {
-    const l = levels[level] || (levels[level] = { path: new Path2D(), glyphs: [] });
-    through(l.path, level % 3 ? pts : [...pts, pts[0]]);
-    pts.forEach((p, i) => l.glyphs.push({ x: p.x, y: p.y, size: scale * sign[i], glyph: form.anchors[i].sym }));
-  });
-  return levels;
+  const v = o.live;
+  return grow(form, Math.min(9, form.lsys.gens + 4), (x, y, len, gen) => {
+    const reach = len * 1.6;
+    if (x + reach < v.x0 || x - reach > v.x1 || y + reach < v.y0 || y - reach > v.y1) return false;
+    const close = v.pointer && Math.hypot(x - v.pointer.x, y - v.pointer.y) < 120 * o.px + len;
+    return gen < 1 || len / o.px >= (close ? 2.5 : 6);
+  }, 3000);
 }
 function drawFractal(ctx, form, o, t) {
   const f = o.live ? liveFractal(form, o) : fractalOf(form);
   let texts = o.maxGlyphs;
+  const deepest = f.length - 1;
   for (let level = 1; level < f.length; level++) {
-    if (!f[level]) continue;
 
     const lift = o.levels ? 0.55 + 0.6 * o.levels[(level - 1) % o.levels.length] : 1, soft = o.constellations ? 0.8 : 1, tone = t.level((level - 1) % 5);
-    ctx.strokeStyle = rgba(tone, Math.max(0.16, 0.56 - level * 0.09) * o.alpha * soft * lift);
-    ctx.lineWidth = o.px * (level === 1 ? 1.1 : 0.8); ctx.stroke(f[level].path);
-    const ink = rgba(tone, Math.min(1, Math.max(0.6, 1 - level * 0.07) * o.alpha * soft * lift));
+    const fine = level === deepest;
+    ctx.strokeStyle = rgba(tone, (fine ? 0.62 : 0.16 + 0.04 * level) * o.alpha * soft * lift);
+    ctx.lineWidth = o.px * (fine ? 0.9 : 0.7); ctx.stroke(f[level].path);
+    const ink = rgba(tone, Math.min(1, (0.75 - level * 0.05) * o.alpha * soft * lift));
+    const least = o.live ? 11 : 6;
     for (const g of f[level].glyphs) {
-      if (g.size / o.px < 4) continue;
+      if (g.size / o.px < least) continue;
       if (texts-- <= 0) break;
       glyphText(ctx, g.glyph, g.x, g.y, g.size, ink, 0);
     }
   }
+
+  if (o.live && form.lsys.rule) {
+    ctx.font = `${12 * o.px}px "DejaVu Sans Mono",Consolas,monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = rgba(GOLD, 0.7 * o.alpha);
+    ctx.fillText(form.lsys.rule, form.lsys.root.x, form.lsys.root.y + 14 * o.px);
+  }
+}
+
+function straight(path, pts, from = 0, to = pts.length - 1) {
+  for (let i = from; i < to; i++) { path.moveTo(pts[i].x, pts[i].y); path.lineTo(pts[i + 1].x, pts[i + 1].y); }
 }
 
 export function drawForm(ctx, form, options) {
@@ -113,12 +122,12 @@ export function drawForm(ctx, form, options) {
   const t = tones(form.mood, o.warm, o.bright), px = o.px, A = o.alpha;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-  if (o.fractals && form.gen.length > 1) drawFractal(ctx, form, o, t);
+  if (o.fractals && form.lsys) drawFractal(ctx, form, o, t);
 
   if (!o.constellations) {
 
     if (form.anchors.length > 1) {
-      ctx.beginPath(); through(ctx, form.anchors);
+      ctx.beginPath(); straight(ctx, form.anchors);
       ctx.strokeStyle = rgba(t.line, 0.7 * A); ctx.lineWidth = px * 1.2; ctx.stroke();
     }
     for (const a of form.anchors) glyphText(ctx, a.sym, a.x, a.y, 17, rgba(t.glyph, A), o.glow);
@@ -126,7 +135,15 @@ export function drawForm(ctx, form, options) {
   }
 
   const P = form.path, inside = new Path2D(), across = new Path2D();
-  for (let i = 0; i < P.length - 1; i++) through(P[i].phrase === P[i + 1].phrase ? inside : across, P, i, i + 1);
+
+  for (let i = 0; i < P.length - 1; i++) {
+    const a = P[i], b = P[i + 1];
+    if ((a.unit ?? a.phrase) === (b.unit ?? b.phrase) || !b.stem || !b.branch) straight(inside, P, i, i + 1);
+    else { across.moveTo(a.x, a.y); across.lineTo(b.stem.x, b.stem.y); inside.moveTo(b.stem.x, b.stem.y); inside.lineTo(b.x, b.y); }
+  }
+
+  const stemPts = [form.start, ...form.nodes.filter(n => n.branch && n.stem).map(n => n.stem)];
+  for (let i = 0; i < stemPts.length - 1; i++) if (Math.abs(stemPts[i + 1].x - stemPts[i].x) < 1) straight(inside, stemPts, i, i + 1);
   ctx.strokeStyle = rgba(t.line, 0.3 * A); ctx.lineWidth = px * 0.8; ctx.stroke(across);
   ctx.strokeStyle = rgba(t.line, (0.07 + 0.1 * o.energy) * A); ctx.lineWidth = px * (4.5 + 5 * o.energy); ctx.stroke(inside);
   ctx.strokeStyle = rgba(t.line, 0.78 * A); ctx.lineWidth = px * (1.2 + 0.7 * o.energy); ctx.stroke(inside);
