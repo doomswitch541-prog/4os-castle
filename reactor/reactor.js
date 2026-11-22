@@ -9,7 +9,7 @@ const TAU = Math.PI * 2;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
 const els = {
-  words: $('words'), model: $('model'), state: $('engine-state'), stop: $('stop'), field: $('field'), core: $('core'),
+  words: $('words'), model: $('model'), state: $('engine-state'), stop: $('stop'), field: $('field'), core: $('core'), selfLine: $('self-line'),
   answer: $('answer'), from: $('answer-from'), text: $('answer-text'), sent: $('sent'), sentSummary: $('sent-summary'),
   sentText: $('sent-text'), pulses: $('pulses'), up: $('pulse-up'), down: $('pulse-down'), at: $('pulse-at'),
 };
@@ -424,7 +424,7 @@ async function pulse(g) {
   if (!words) {
     const last = shownPulse() || mem.pulses.at(-1);
     if (last?.answer.trim()) { words = last.answer.trim().slice(0, WORDS_MAX); looped = true; }
-    else { els.words.focus(); if (wordsBox) ripple(wordsBox.left + wordsBox.width / 2, wordsBox.top + wordsBox.height / 2, COLOR[g], 0.8); return; }
+    else words = pickLine();
   }
   const p = { t: Date.now(), glyph: g, words, model: '', answer: '', sent: '', offline: false, looped, born: mem.watched };
   mem.pulses.push(p);
@@ -485,17 +485,18 @@ function take(p, d) {
   if (d.error) renderEngine(String(d.error));
 }
 
-function offline(p) {
-  const w = p.words.trim();
-  if (p.glyph === '♇') {
+function transform(g, words) {
+  const w = words.trim();
+  if (g === '♇') {
     const clauses = w.split(/(?<=[.,;:!?—])\s+/).filter(Boolean);
-    p.answer = clauses.reverse().map(c => c.replace(/[.,;:!?—]+$/, '').split(/\s+/).reverse().join(' ')).join(' / ');
-  } else if (p.glyph === '☍') {
-    p.answer = w;
-  } else {
-    const ws = w.split(/\s+/);
-    p.answer = `${ws.join(' ')} ❖ ${[...ws].reverse().join(' ')}`;
+    return clauses.reverse().map(c => c.replace(/[.,;:!?—]+$/, '').split(/\s+/).reverse().join(' ')).join(' / ');
   }
+  if (g === '☍') return w;
+  const ws = w.split(/\s+/);
+  return `${ws.join(' ')} ❖ ${[...ws].reverse().join(' ')}`;
+}
+function offline(p) {
+  p.answer = transform(p.glyph, p.words);
   p.offline = true;
   save();
   if (shownPulse() === p) render(p);
@@ -575,6 +576,52 @@ els.words.addEventListener('keydown', e => {
 });
 addEventListener('keydown', e => { if (e.key === 'Escape' && streaming) stop(); });
 
+const ROUND = ['☍', '♇', '❖'];
+function pickLine() {
+  const text = [...document.querySelectorAll('.say .lead, .say .glyph-line, .field .field-line, .rest p, .rest li')].map(e => e.textContent).join(' ');
+  const lines = text.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(s => s.length >= 18 && s.length <= 180 && /\p{L}/u.test(s));
+  return lines.length ? lines[Math.floor(Math.random() * lines.length)] : '';
+}
+let lastTouch = -Infinity;
+const self = { phase: 'rest', until: performance.now() / 1000 + 6, chars: [], k: 0, next: 0, turn: 0, fed: '', text: '' };
+function selfLine(g, text) {
+  const el = els.selfLine; if (!el) return;
+  if (!text) { el.classList.remove('on'); return; }
+  el.replaceChildren(); if (g) { const s = document.createElement('span'); s.className = 'g'; s.textContent = g; el.append(s); }
+  el.append(text.length > 160 ? `${text.slice(0, 159)}…` : text); el.classList.add('on');
+}
+function stepAside() { lastTouch = now; if (self.phase !== 'rest') { self.phase = 'rest'; self.until = now + 4; selfLine(); } }
+for (const type of ['keydown', 'pointerdown', 'wheel', 'touchstart', 'input']) addEventListener(type, stepAside, { passive: true, capture: true });
+function fromEdge(ch) {
+  const a = Math.random() * TAU, R = core.r * (2.2 + Math.random() * 0.8), x = core.x + Math.cos(a) * R, y = core.y + Math.sin(a) * R * 0.8;
+  spawn({ x, y, vx: (core.x - x) * 0.22, vy: (core.y - y) * 0.22, ch, rgb: INK, size: 15, max: 7 });
+}
+function selfPlay() {
+  if (streaming || now - lastTouch < 9) return;
+  if (self.phase === 'rest') {
+    if (now < self.until) return;
+    const text = self.turn % 2 && self.fed ? self.fed : pickLine();
+    if (!text) { self.until = now + 10; return; }
+    const letters = [...text].filter(c => /[\p{L}\p{N}]/u.test(c)), step = Math.max(1, letters.length / (reduced ? 14 : 36));
+    Object.assign(self, { phase: 'in', text, chars: letters.filter((_, i) => i % step < 1), k: 0, next: now });
+    selfLine('', text);
+    return;
+  }
+  if (self.phase === 'in') {
+    while (now >= self.next && self.k < self.chars.length) { fromEdge(self.chars[self.k++]); self.next += 0.13; }
+    if (self.k < self.chars.length || now < self.next + 1.2) return;
+    const g = ROUND[self.turn++ % ROUND.length], made = transform(g, self.text);
+    self.fed = made.slice(0, 200);
+    ripple(core.x, core.y, COLOR[g], 0.6, 140, 3.2); flash = Math.max(flash, 0.45);
+    setMode(g, 9);
+    spawnText(made, core, null, COLOR[g], reduced ? 8 : 18);
+    selfLine(g, made);
+    Object.assign(self, { phase: 'out', until: now + 9 });
+    return;
+  }
+  if (self.phase === 'out' && now > self.until) { self.phase = 'rest'; self.until = now + 16 + Math.random() * 14; selfLine(); }
+}
+
 let last = performance.now(), frameN = 0, wallAt = 0, savedAt = 0, cost = 0, nextGust = performance.now() / 1000 + 25 + Math.random() * 40;
 function frame(ms) {
   const c0 = performance.now();
@@ -587,6 +634,7 @@ function frame(ms) {
   if (!streaming && mode.goal > 0.12 && now > mode.until) mode.goal = 0.12;
 
   if (!streaming && now > nextGust) { nextGust = now + 50 + Math.random() * 60; const g = GLYPHS[(Math.random() * 3) | 0]; for (let i = 0; i < 4; i++) spawnGlyph(g); ripple(core.x, core.y, COLOR[g], 0.35, 120, 3); }
+  selfPlay();
   mode.amt += (mode.goal - mode.amt) * (1 - Math.exp(-dt * 1.6));
   stepStorm(dt);
   if (answerDirty && now - answerAt > 0.12) { answerDirty = false; answerAt = now; const p = shownPulse(); if (p) render(p); }
@@ -616,5 +664,6 @@ window.__reactor = {
   streaming: () => Boolean(streaming), shown: () => shown, pulse, stop, showPulse, hearts: () => hearts.map(h => ({ g: h.g, period: h.period, env: h.env })),
   secrets: () => secrets.slice(), tuned: () => now < tunedUntil, hush: () => hush,
   kinds: () => parts.reduce((m, p) => { const k = p.kind || 'mote'; m[k] = (m[k] || 0) + 1; return m; }, {}),
-  depths: () => mem.pulses.map(depthOf), cost: () => cost, core: () => ({ ...core }), watch: s => { mem.watched += s; },
+  depths: () => mem.pulses.map(depthOf), cost: () => cost,
+  self: () => ({ phase: self.phase, turn: self.turn, text: self.text, fed: self.fed }), selfSoon: () => { lastTouch = -Infinity; self.phase = 'rest'; self.until = now; }, core: () => ({ ...core }), watch: s => { mem.watched += s; },
 };
