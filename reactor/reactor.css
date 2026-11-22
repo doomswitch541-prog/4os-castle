@@ -57,10 +57,10 @@ body.reactor { margin: 0; min-height: 100vh; background: var(--bg); color: var(-
 .part-field { margin-top: 2px; }
 .toss-line { display: block; margin: 0 0 6px; font-size: 15px; line-height: 1.5; color: var(--dim); max-width: 44em; }
 .toss-line strong { font-weight: normal; color: var(--ink); }
-#words { display: block; width: 100%; max-width: 44em; box-sizing: border-box; min-height: 74px; max-height: 30vh; resize: vertical; padding: 8px 2px; border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); background: rgba(0, 0, 0, 0.35); color: var(--ink); caret-color: var(--glint);
+#words { display: block; width: 100%; max-width: 44em; box-sizing: border-box; min-height: 74px; max-height: 30vh; resize: vertical; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--gold) 16%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); border-radius: 3px; background: rgba(255, 255, 255, 0.035);    color: var(--ink); caret-color: var(--glint);
   font: italic 18px/1.45 var(--serif); }
-#words:focus { outline: none; border-bottom-color: var(--glint); background: rgba(0, 0, 0, 0.5); }
+#words:focus { outline: none; border-color: color-mix(in srgb, var(--glint) 35%, transparent); border-bottom-color: var(--glint); background: rgba(0, 0, 0, 0.5); }
 .core { flex: 1 1 auto; min-height: 150px; position: relative; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-end; padding-top: 10px; }
 .field-line { margin: 0 0 4px; max-width: 30em; font-size: 13px; line-height: 1.5; color: color-mix(in srgb, var(--dim) 80%, transparent); text-align: right; }
 .grow-line { margin: 6px 0 14px; text-align: left; }

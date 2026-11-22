@@ -118,7 +118,7 @@ function straight(path, pts, from = 0, to = pts.length - 1) {
 
 export function drawForm(ctx, form, options) {
   if (!form.nodes.length) return;
-  const o = { px: 1, alpha: 1, warm: 0, energy: 0, fractals: true, constellations: true, bright: false, draft: false, traceText: false, legend: null, live: null, glow: 8, maxGlyphs: 4000, levels: null, spark: null, ...options };
+  const o = { px: 1, alpha: 1, warm: 0, energy: 0, fractals: true, constellations: true, bright: false, draft: false, traceText: false, legend: null, live: null, glow: 8, maxGlyphs: 0, levels: null, spark: null, ...options };
   const t = tones(form.mood, o.warm, o.bright), px = o.px, A = o.alpha;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
@@ -130,7 +130,7 @@ export function drawForm(ctx, form, options) {
       ctx.beginPath(); straight(ctx, form.anchors);
       ctx.strokeStyle = rgba(t.line, 0.7 * A); ctx.lineWidth = px * 1.2; ctx.stroke();
     }
-    for (const a of form.anchors) glyphText(ctx, a.sym, a.x, a.y, 17, rgba(t.glyph, A), o.glow);
+    for (const a of form.anchors) if (a.glyph) glyphText(ctx, a.glyph, a.x, a.y, 13, rgba(t.glyph, A), o.glow);
     return;
   }
 
@@ -181,16 +181,15 @@ export function drawForm(ctx, form, options) {
   }
 
   for (const node of form.nodes) {
-    if (node.typed) glyphText(ctx, [...node.word].slice(0, 6).join(''), node.x, node.y, 15, rgba(t.glyph, A), o.glow);
-    else if (node.glyph) glyphText(ctx, node.glyph, node.x, node.y, o.lit === node.glyph ? 22 : 18, rgba(o.lit === node.glyph ? GOLD : t.glyph, A), o.glow);
+    const g = node.typed ? (node.word.match(/[♇☍♃❖⛬]/u) || [])[0] : node.glyph;
+    if (g) glyphText(ctx, g, node.x, node.y, o.lit === g ? 16 : 13, rgba(o.lit === g ? GOLD : t.glyph, A), o.glow);
   }
 
-  glyphText(ctx, '🖋️', form.start.x, form.start.y, 13, rgba(INK, A), 0);
-  if (o.draft) {
+  {
     const r = px * (2.6 + 3.4 * o.energy);
     ctx.beginPath(); ctx.arc(form.end.x, form.end.y, r, 0, Math.PI * 2);
     ctx.shadowColor = rgba(GOLD, 1); ctx.shadowBlur = o.glow * 1.5; ctx.fillStyle = rgba(GOLD, A); ctx.fill(); ctx.shadowBlur = 0;
-  } else glyphText(ctx, '💫', form.end.x, form.end.y, 13, rgba(INK, A), 0);
+  }
 
   if (o.legend !== null && form.phrases[o.legend]) {
     const p = form.phrases[o.legend], node = form.nodes[p.from], flat = p.text.replace(/\s+/g, ' '), text = flat.length > 46 ? `${flat.slice(0, 45)}…` : flat;

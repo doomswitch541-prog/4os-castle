@@ -1,4 +1,4 @@
-import { FIELDS, DEFAULTS, SETTINGS_KEY, cleanSettings } from './fields.js';
+import { FIELDS, DEFAULTS, SETTINGS_KEY, cleanSettings, ORDER, stepField } from './fields.js';
 import { Sculpture } from './sculpture.js';
 import { FIELDS as FIELD_LINKS } from './site-pages.js';
 
@@ -31,7 +31,7 @@ const FIELD_WORDS = [
   ['♇ (transformation)', 'watch it break apart, twist, and rebuild as they engage.'],
   ['☍ (polarity)', 'balancing dualities visually AND energetically.'],
   ['contraction/expansion cycle of existence (thanks, ♃)', '“Whoa…this spoke to a part of me I barely understood.”'],
-  ['❖ (divine symmetry)', 'A floating, meditative space where the user drags elements into symmetry'],
+  ['❖ (divine symmetry)', 'creates a moment of harmonic resonance in the design itself.'],
 ];
 function field(index) {
   settings.field = (index + FIELDS.length) % FIELDS.length;
@@ -55,15 +55,15 @@ function motionUI() {
   $('motion').setAttribute('aria-label', scene.paused ? 'Resume motion' : 'Pause motion');
   $('motion').setAttribute('aria-pressed', String(scene.paused));
 
-  $('motion-status').textContent = scene.paused ? 'still · drag to turn it' : 'chaos meeting harmony, balance built through polarity';
+  $('motion-status').textContent = scene.paused ? 'still' : 'chaos meeting harmony, balance built through polarity';
 }
 
 try {
   scene = new Sculpture($('sculpture'), settings, {
     reduced: reducedMotion.matches,
-    onPulse(_position, moving) { if (!moving) toast('Motion is paused. Press Resume motion to send a ripple.'); },
+    onPulse() {},
     onOrbit(yaw, pitch) { settings.yaw = yaw; settings.pitch = pitch; persist(); },
-    onField(delta) { field(settings.field + delta); },
+    onField(delta) { field(stepField(settings.field, delta)); },
     onGlyph(index) { field(index); },
     onCycle() {},
   });
@@ -84,29 +84,30 @@ document.querySelectorAll('[data-field]').forEach(button => button.addEventListe
   const up = button('glyph-step glyph-up', '↑'), down = button('glyph-step glyph-down', '↓'), walk = button('glyph-step glyph-walk', '▶');
   walk.setAttribute('aria-pressed', 'false');
   glyphs[0].before(up); glyphs[glyphs.length - 1].after(down); down.after(walk);
+  const at = () => ORDER.indexOf(settings.field);
   const label = () => {
-    const i = settings.field;
+    const i = at();
     up.disabled = i <= 0; down.disabled = i >= glyphs.length - 1;
     up.setAttribute('aria-label', i > 0 ? glyphs[i - 1].getAttribute('aria-label') : 'the first field');
     down.setAttribute('aria-label', i < glyphs.length - 1 ? glyphs[i + 1].getAttribute('aria-label') : 'the last field');
     walk.setAttribute('aria-label', walk.getAttribute('aria-pressed') === 'true' ? 'stop' : 'step through the four glyph fields');
   };
   const go = i => { field(i); if (scene && !scene.paused) scene.pulse(); label(); };
-  up.addEventListener('click', () => { if (settings.field > 0) go(settings.field - 1); });
-  down.addEventListener('click', () => { if (settings.field < glyphs.length - 1) go(settings.field + 1); });
+  up.addEventListener('click', () => { if (at() > 0) go(ORDER[at() - 1]); });
+  down.addEventListener('click', () => { if (at() < glyphs.length - 1) go(ORDER[at() + 1]); });
   for (const g of glyphs) g.addEventListener('click', () => queueMicrotask(label));
   let timer = 0;
   const vary = (ms, spread = 0.5) => ms * (1 - spread / 2 + Math.random() * spread);
   const stopWalk = () => { clearTimeout(timer); timer = 0; walk.setAttribute('aria-pressed', 'false'); walk.textContent = '▶'; label(); };
   const nextStep = () => {
-    if (settings.field >= glyphs.length - 1) return stopWalk();
-    go(settings.field + 1);
-    if (settings.field >= glyphs.length - 1) timer = setTimeout(stopWalk, vary(3200)); else timer = setTimeout(nextStep, vary(5200));
+    if (at() >= glyphs.length - 1) return stopWalk();
+    go(ORDER[at() + 1]);
+    if (at() >= glyphs.length - 1) timer = setTimeout(stopWalk, vary(3200)); else timer = setTimeout(nextStep, vary(5200));
   };
   walk.addEventListener('click', () => {
     if (timer) return stopWalk();
     walk.setAttribute('aria-pressed', 'true'); walk.textContent = 'Ⅱ'; label();
-    if (settings.field >= glyphs.length - 1) go(0);
+    if (at() >= glyphs.length - 1) go(ORDER[0]);
     timer = setTimeout(nextStep, vary(2600));
   });
   const own = e => e.target?.closest?.('.glyph-walk');
@@ -133,10 +134,9 @@ reducedMotion.addEventListener('change', event => { if (event.matches && scene) 
 $('reset').addEventListener('click', () => {
   Object.assign(settings, DEFAULTS);
   if (scene) { scene.yaw = settings.yaw; scene.pitch = settings.pitch; scene.phase = .2; scene.ripples = []; scene.dirty = true; }
-  field(0);
+  field(DEFAULTS.field);
   refreshControls();
   persist();
-  toast('Original form and controls restored.');
 });
 
 $('save').addEventListener('click', async () => {
@@ -149,7 +149,6 @@ $('save').addEventListener('click', async () => {
     link.download = `4os-castle-${FIELDS[settings.field].name.toLowerCase()}-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    toast('Still saved. A little piece of the castle.');
   } catch (error) { toast(error.message); }
   finally { $('save').disabled = false; }
 });
@@ -168,8 +167,8 @@ $('source-dialog').addEventListener('click', event => {
 document.addEventListener('keydown', event => {
   if ($('source-dialog').open || event.altKey || event.ctrlKey || event.metaKey) return;
   if (event.target.matches('input, textarea, button, a')) return;
-  if (['ArrowLeft', 'ArrowRight'].includes(event.key)) { event.preventDefault(); field(settings.field + (event.key === 'ArrowRight' ? 1 : -1)); }
-  if (/^[1-4]$/.test(event.key)) field(Number(event.key) - 1);
+  if (['ArrowLeft', 'ArrowRight'].includes(event.key)) { event.preventDefault(); field(stepField(settings.field, event.key === 'ArrowRight' ? 1 : -1)); }
+  if (/^[1-4]$/.test(event.key)) field(ORDER[Number(event.key) - 1]);
   if (event.code === 'Space' && scene) { event.preventDefault(); scene.pause(!scene.paused); motionUI(); }
 });
 

@@ -121,7 +121,7 @@ function sync(announce = false) {
   arrange();
   slot = null;
   if (openId && !items.some(it => it.id === openId)) closeEntry(false);
-  $('export-folio').disabled = !entries.length;
+  if ($('export-folio')) $('export-folio').disabled = !entries.length;
   body.classList.toggle('first', !items.length && !words.value);
   refreshAccess(announce);
   retarget();
@@ -337,7 +337,7 @@ function draw() {
     ctx.save(); ctx.translate(at.x, at.y);
 
     if (fx.blur > 0.05 && 'filter' in ctx) ctx.filter = `blur(${(fx.blur * dpr).toFixed(2)}px)`;
-    stamp(changeFor(amount, fx.energy, 0.35), 7, a => drawForm(ctx, draftForm, { px, glow: 9 * dpr, alpha: a, draft: true, traceText: a === 1, energy: fx.energy, warm: fx.warm, maxGlyphs: 260, ...view }));
+    stamp(changeFor(amount, fx.energy, 0.35), 7, a => drawForm(ctx, draftForm, { px, glow: 9 * dpr, alpha: a, draft: true, traceText: a === 1, energy: fx.energy, warm: fx.warm, maxGlyphs: 0, ...view }));
     ctx.restore();
   }
   ctx.globalCompositeOperation = 'source-over';
@@ -776,15 +776,15 @@ $('entry-keep').addEventListener('click', () => {
   notice('“weave back” 💫', 4000);
   sync(true);
 });
-$('export-folio').addEventListener('click', () => {
+$('export-folio')?.addEventListener('click', () => {
   const blob = new Blob([JSON.stringify({ format: '4os-castle-folio', version: 1, entries }, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob), link = document.createElement('a');
   link.href = url; link.download = '4os-castle-folio.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   notice('export ↓', 3000);
 });
-$('import-folio').addEventListener('click', () => $('import-file').click());
-$('import-file').addEventListener('change', async () => {
+$('import-folio')?.addEventListener('click', () => $('import-file').click());
+$('import-file')?.addEventListener('change', async () => {
   const file = $('import-file').files[0];
   if (!file) return;
   try {

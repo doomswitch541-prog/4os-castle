@@ -204,12 +204,12 @@ function make(tag, cls, parent) { const el = document.createElement(tag); if (cl
 
 const breathing = make('div', 'breathing');
 breathing.setAttribute('aria-hidden', 'true');
-for (const g of ['♇', '☍', '❖']) make('span', null, breathing).textContent = g;
+for (const g of ['☍', '♇', '❖']) make('span', null, breathing).textContent = g;
 
 const astraLayers = [0, 1, 2].map(i => {
   const el = make('div', `astra-layer astra-layer-${i}`);
   el.setAttribute('aria-hidden', 'true');
-  el.textContent = Array.from({ length: 900 }, (_, k) => ['♇', '☍', '♃', '❖', '⛬'][(k * (i + 2) + i) % 5]).join(' ');
+  el.textContent = Array.from({ length: 900 }, (_, k) => ['☍', '♇', '♃', '❖', '⛬'][(k * (i + 2) + i) % 5]).join(' ');
   return el;
 });
 
@@ -347,7 +347,8 @@ for (const st of stations) {
   }
 }
 
-const TABS = [['pulse', '🌀', 'PULSE'], ['transformation', '♇', 'transformation'], ['polarity', '☍', 'polarity'], ['expansion', '♃', 'expansion'], ['symmetry', '❖', 'symmetry']];
+const TABS = [['pulse', '🌀', 'PULSE'], ['polarity', '☍', 'polarity'], ['transformation', '♇', 'transformation'],
+  ['expansion', '♃', 'expansion'], ['symmetry', '❖', 'symmetry']];
 const tabbar = make('nav', 'tabbar', body); tabbar.setAttribute('aria-label', 'glyphs front and center');
 const capsule = make('span', 'tab-capsule', tabbar); capsule.setAttribute('aria-hidden', 'true');
 
@@ -536,7 +537,7 @@ document.addEventListener('pointerover', e => {
 });
 const overlay = make('div', 'overlay', body);
 overlay.setAttribute('aria-hidden', 'true');
-overlay.textContent = Array.from({ length: 400 }, (_, k) => ['♇', '☍', '♃', '❖'][k % 4]).join(' ');
+overlay.textContent = Array.from({ length: 400 }, (_, k) => ['☍', '♇', '♃', '❖'][k % 4]).join(' ');
 function visualShift() {
   state.shift = (state.shift + 0.17) % 1; save();
   insight(1);
@@ -618,10 +619,10 @@ if (pulseSt.sculpture) ['♇', '☍', '♃', '❖'].forEach((g, i) => {
 });
 const T = byId.transformation, P = byId.polarity, C = byId.expansion;
 if (T.sculpture) handle(T, '♇', 'watch it break apart, twist, and rebuild as they engage', out => T.sculpture.anchor(7, 30, out), { click: () => triggerBreak(1) });
-if (P.sculpture) handle(P, '☍', '☍ (polarity): Dichotomy-flipping UI', out => P.sculpture.anchor(19, 60, out), { click: () => { wordsAct(P); toggleFlip(); } });
+if (P.sculpture) handle(P, '☍', '☍ (polarity)', out => P.sculpture.anchor(19, 60, out), { click: () => { wordsAct(P); toggleFlip(); } });
 if (C.sculpture) handle(C, '♃', 'contraction/expansion cycle of existence (thanks, ♃)', out => C.sculpture.anchor(35, 20, out), { hold: on => holdCycle(on) });
 if (sym.st.sculpture) for (let p = 0; p < 4; p++) {
-  handle(sym.st, '❖', 'drags elements into symmetry', out => sym.st.sculpture.pieceWorld(p, out, 1.0), {
+  handle(sym.st, '❖', '❖ (divine symmetry)', out => sym.st.sculpture.pieceWorld(p, out, 1.0), {
     drag: (b) => {
       let last = null;
       b.addEventListener('pointerdown', e => { if (sym.locked[p]) return; last = { x: e.clientX, y: e.clientY }; b.setPointerCapture(e.pointerId); b.classList.add('held'); });
@@ -963,7 +964,8 @@ function stepPocket(dt, now, travel, k) {
     stations[pocket.k].pocketMark.hidden = false; sheetRows[pocket.k].p.hidden = false; fitRail();
   }
   const o = pocket.open;
-  const reach = pocket.branches.length ? 0.3 : 1;
+
+  const reach = pocket.branches.length ? 0 : 1;
   pocket.turn += ((pointer.inside ? (pointer.x / vw() - 0.5) * -1.1 * reach : 0) - pocket.turn) * Math.min(1, dt * 2);
   pocket.ring.position.copy(camera.position);
   pocket.ring.quaternion.copy(camera.quaternion).multiply(turnQ.setFromAxisAngle(yAxis, pocket.turn + Math.sin(rhythm.phase * 0.3) * 0.08));
@@ -1115,8 +1117,8 @@ const returnFork = (() => {
   const words = m ? st?.el.dataset.pocket : st?.label;
   if (!st || !words) return null;
   const box = make('div', 'return-fork', body); box.setAttribute('role', 'group');
-  const q = make('p', 'return-question', box); q.textContent = byId.where.label;
-  box.setAttribute('aria-label', q.textContent);
+
+  box.setAttribute('aria-label', byId.where.label);
   const back = make('a', 'return-way', box); back.href = cameBackTo; back.textContent = words;
   const here = make('button', 'return-way', box); here.type = 'button'; here.textContent = byId.opening.label;
   return box;

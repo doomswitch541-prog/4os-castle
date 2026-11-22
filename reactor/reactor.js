@@ -39,7 +39,7 @@ function rng(seed) { let a = seed >>> 0 || 1; return () => { a ^= a << 13; a >>>
 
 const ground = $('ground'), storm = $('storm');
 const gx = ground.getContext('2d'), sx = storm.getContext('2d');
-const DPR = Math.min(devicePixelRatio || 1, 1.5);
+const DPR = Math.min(devicePixelRatio || 1, 2);
 const TEX = 12;
 const tex = document.createElement('canvas'), tx = tex.getContext('2d');
 const wall = document.createElement('canvas'), wx = wall.getContext('2d');
@@ -69,7 +69,7 @@ function measureBoxes() {
   wordsBox = els.words.getBoundingClientRect();
 
   const was = quiet.map(r => `${r.left|0},${r.top|0},${r.width|0},${r.height|0}`).join();
-  quiet = [...document.querySelectorAll('.field .field-line, .field .toss-line, .field .part, #answer:not([hidden]), .say .title, .say .lead, .say .part, .say .quiet, .say .glyphs-line, .say .glyph, .say .engine, .rest p, .rest .part, .rest li')].map(e => e.getBoundingClientRect()).filter(r => r.width && r.bottom > 0 && r.top < H);
+  quiet = [...document.querySelectorAll('#words, .field .field-line, .field .toss-line, .field .part, #answer:not([hidden]), .say .title, .say .lead, .say .part, .say .quiet, .say .glyphs-line, .say .glyph, .say .engine, .rest p, .rest .part, .rest li')].map(e => e.getBoundingClientRect()).filter(r => r.width && r.bottom > 0 && r.top < H);
   if (quiet.map(r => `${r.left|0},${r.top|0},${r.width|0},${r.height|0}`).join() !== was) wallDirty = true;
   const f = els.field.getBoundingClientRect(), left = f.width ? Math.round(f.left) : 0;
   if (left !== fieldLeft) { fieldLeft = left; settledDirty = wallDirty = true; }
@@ -84,16 +84,16 @@ const ripples = [];
 function ripple(x, y, rgb, amp = 1, speed = 200, life = 2.4) {
   if (reduced) { amp *= 0.5; speed *= 0.5; }
   ripples.push({ x, y, rgb, amp, speed, life, t0: now });
-  if (ripples.length > 18) ripples.shift();
+  if (ripples.length > 8) ripples.shift();
 }
 function paintTexture(t) {
   const d = img.data;
 
   const live = ripples.filter(r => t - r.t0 < r.life).map(R => {
-    const age = t - R.t0, w = 24 + age * 16, rad = age * R.speed;
-    return { x: R.x, y: R.y, rgb: R.rgb, rad, w2: w * w, reach: rad + 3 * w, inner: Math.max(0, rad - 3 * w), k: R.amp * (1 - age / R.life) * 0.2 };
+    const age = t - R.t0, w = 34 + age * 22, rad = age * R.speed * 0.8;
+    return { x: R.x, y: R.y, rgb: R.rgb, rad, w2: w * w, reach: rad + 3 * w, inner: Math.max(0, rad - 3 * w), k: R.amp * (1 - age / R.life) * 0.12 };
   });
-  const mc = mode.g ? COLOR[mode.g] : COLOR['❖'], ma = 0.045 + 0.05 * mode.amt;
+  const mc = mode.g ? COLOR[mode.g] : COLOR['❖'], ma = 0.018 + 0.032 * mode.amt;
   for (let j = 0; j < TH; j++) {
     const y = j * TEX, sy = Math.sin(y * 0.013 + t * 0.041), wy = Math.sin(y * 0.009 - t * 0.05) * 2.1;
     for (let i = 0; i < TW; i++) {
@@ -121,9 +121,8 @@ function beatHearts(t, dt) {
       h.env = 1;
       h.period = t < tunedUntil ? FOURTHS[h.g] : clamp(h.period * (1 + (Math.random() - 0.5) * 0.2), BASE[h.g] * 0.75, BASE[h.g] * 1.32);
       h.next = t + h.period * tempo;
-      const at = buttonAt[h.g];
-      if (at) ripple(at.x, at.y, COLOR[h.g], 0.6, 190, 2.8);
-      spawnGlyph(h.g);
+
+      if (Math.random() < 0.08) spawnGlyph(h.g);
     }
     buttons[h.g].style.setProperty('--beat', h.env.toFixed(3));
   }
@@ -169,13 +168,13 @@ const mode = { g: null, amt: 0, goal: 0, until: 0 };
 let hush = 1;
 function setMode(g, hold = 18) { mode.g = g; mode.goal = 1; mode.until = now + hold; }
 const parts = [];
-const MAXP = 380;
+const MAXP = 140;
 function spawn(o) {
   if (parts.length >= MAXP) parts.splice(0, parts.length - MAXP + 1);
   parts.push({ life: 0, max: 7, size: 16, seed: Math.random() * TAU, ...o });
 }
 function spawnGlyph(g) {
-  const a = Math.random() * TAU, s = 30 + Math.random() * 40;
+  const a = Math.random() * TAU, s = 18 + Math.random() * 24;
   spawn({ x: core.x + Math.cos(a) * 6, y: core.y + Math.sin(a) * 6, vx: Math.cos(a) * s, vy: Math.sin(a) * s, ch: g, rgb: COLOR[g], size: 20, max: 6 });
 }
 function spawnText(text, from, toward, rgb, cap = 10) {
@@ -183,25 +182,24 @@ function spawnText(text, from, toward, rgb, cap = 10) {
   for (const ch of chars) {
     const x = from.x + (Math.random() - 0.5) * (from.w || 10), y = from.y + (Math.random() - 0.5) * (from.h || 10);
     let vx, vy;
-    if (toward) { vx = (toward.x - x) * (0.5 + Math.random() * 0.4); vy = (toward.y - y) * (0.5 + Math.random() * 0.4); }
-    else { const a = Math.random() * TAU, s = 50 + Math.random() * 90; vx = Math.cos(a) * s; vy = Math.sin(a) * s; }
+    if (toward) { vx = (toward.x - x) * (0.34 + Math.random() * 0.22); vy = (toward.y - y) * (0.34 + Math.random() * 0.22); }
+    else { const a = Math.random() * TAU, s = 28 + Math.random() * 44; vx = Math.cos(a) * s; vy = Math.sin(a) * s; }
     spawn({ x, y, vx, vy, ch, rgb, size: 15 + Math.random() * 5, max: 6 + Math.random() * 4 });
   }
 }
-let pointer = null, lastPointerRipple = 0;
+let pointer = null;
 addEventListener('pointermove', e => {
   pointer = { x: e.clientX, y: e.clientY };
-  if (now - lastPointerRipple > 0.14 && e.target.closest?.('.field')) { lastPointerRipple = now; ripple(e.clientX, e.clientY, mode.g ? COLOR[mode.g] : COLOR['❖'], 0.25, 140, 1.4); }
 }, { passive: true });
 addEventListener('pointerleave', () => { pointer = null; });
 
 let mutateAt = 0;
 function stepStorm(dt) {
   const k = reduced ? 0.35 : 1, amt = mode.amt, shell = core.r * 0.55;
-  if (mode.g === '♇' && now - mutateAt > 0.3) {
+  if (mode.g === '♇' && mode.amt > 0.3 && now - mutateAt > 1.1) {
     mutateAt = now;
     const src = [...(shownPulse()?.answer || els.words.value || '')].filter(c => c.trim());
-    if (src.length) for (let i = 0; i < 6 && parts.length; i++) { const p = parts[(Math.random() * parts.length) | 0]; if (!GLYPHS.includes(p.ch)) p.ch = src[(Math.random() * src.length) | 0]; }
+    if (src.length) for (let i = 0; i < 2 && parts.length; i++) { const p = parts[(Math.random() * parts.length) | 0]; if (!GLYPHS.includes(p.ch)) p.ch = src[(Math.random() * src.length) | 0]; }
   }
   hush += (1 - hush) * (1 - Math.exp(-dt * 1.8));
   const kk = k * hush;
@@ -212,20 +210,20 @@ function stepStorm(dt) {
     if (p.kind && moveKind(p, dt, kk)) { parts.splice(i, 1); continue; }
     if (p.kind) continue;
     const dx = p.x - core.x, dy = p.y - core.y, d = Math.sqrt(dx * dx + dy * dy) + 0.001, ux = dx / d, uy = dy / d;
-    let ax = -uy * 16 - ux * (d - shell) * 0.12, ay = ux * 16 - uy * (d - shell) * 0.12;
+    let ax = -uy * 10 - ux * (d - shell) * 0.08, ay = ux * 10 - uy * (d - shell) * 0.08;
     if (mode.g === '♇') {
-      ax += -uy * 70 * amt + ux * Math.sin(now * 1.7 + p.seed) * 50 * amt;
-      ay += ux * 70 * amt + uy * Math.sin(now * 1.7 + p.seed) * 50 * amt;
+      ax += -uy * 40 * amt + ux * Math.sin(now * 0.9 + p.seed) * 22 * amt;
+      ay += ux * 40 * amt + uy * Math.sin(now * 0.9 + p.seed) * 22 * amt;
     } else if (mode.g === '☍') {
-      if (dy > -8) ay -= 120 * amt;
-      ax += -uy * 24 * amt; ay += ux * 24 * amt;
+      if (dy > -8) ay -= 70 * amt;
+      ax += -uy * 16 * amt; ay += ux * 16 * amt;
     } else if (mode.g === '❖') {
       const band = core.r * 0.24, target = Math.max(1, Math.round(d / band)) * band;
-      ax -= ux * (d - target) * 1.4 * amt; ay -= uy * (d - target) * 1.4 * amt;
-      ax += -uy * 30 * amt; ay += ux * 30 * amt;
+      ax -= ux * (d - target) * 0.8 * amt; ay -= uy * (d - target) * 0.8 * amt;
+      ax += -uy * 18 * amt; ay += ux * 18 * amt;
     }
-    if (pointer) { const px = p.x - pointer.x, py = p.y - pointer.y, pd = px * px + py * py; if (pd < 6400) { ax += px / Math.sqrt(pd + 1) * 160; ay += py / Math.sqrt(pd + 1) * 160; } }
-    const damp = Math.exp(-dt * 1.6);
+    if (pointer) { const px = p.x - pointer.x, py = p.y - pointer.y, pd = px * px + py * py; if (pd < 4900) { ax += px / Math.sqrt(pd + 1) * 60; ay += py / Math.sqrt(pd + 1) * 60; } }
+    const damp = Math.exp(-dt * 2);
     p.vx = (p.vx + ax * dt) * damp; p.vy = (p.vy + ay * dt) * damp;
     p.x += p.vx * dt * kk; p.y += p.vy * dt * kk;
   }
@@ -242,37 +240,38 @@ function spriteOf(ch, rgb, size) {
   c = document.createElement('canvas'); c.width = c.height = px;
   const x = c.getContext('2d');
   x.font = `${s * DPR}px ${GLYPH_FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.shadowColor = `rgba(${rgb},0.85)`; x.shadowBlur = 7 * DPR; x.fillStyle = `rgb(${rgb})`;
+  x.shadowColor = `rgba(${rgb},0.45)`; x.shadowBlur = 1.5 * DPR; x.fillStyle = `rgb(${rgb})`;
   x.fillText(ch, px / 2, px / 2);
   sprites.set(key, c);
   return c;
 }
+const inQuiet = (x, y) => { for (const q of quiet) if (x > q.left - 6 && x < q.right + 6 && y > q.top - 6 && y < q.bottom + 6) return true; return false; };
 function drawStorm() {
   sx.globalCompositeOperation = 'destination-out';
-  sx.fillStyle = `rgba(0,0,0,${reduced ? 0.4 : 0.17})`;
+  sx.fillStyle = `rgba(0,0,0,${reduced ? 0.5 : 0.36})`;
   sx.fillRect(0, 0, W, H);
   sx.fillStyle = 'rgba(0,0,0,0.6)';
   for (const q of quiet) sx.fillRect(q.left - 6, q.top - 6, q.width + 12, q.height + 12);
   sx.globalCompositeOperation = 'source-over';
-  const amt = mode.amt, copies = mode.g === '❖' && amt > 0.04 ? 6 : 1;
+  const amt = mode.amt, copies = mode.g === '❖' && amt > 0.3 ? 6 : 1;
   const every = copies > 1 ? Math.max(1, Math.ceil(parts.length * (copies - 1) / 540)) : 1;
   let n = 0;
   for (const p of parts) {
-    let a = Math.min(1, p.life * 3) * Math.min(1, (p.max - p.life) / 1.5);
-    for (const q of quiet) if (p.x > q.left - 6 && p.x < q.right + 6 && p.y > q.top - 6 && p.y < q.bottom + 6) { a *= 0.14; break; }
+    let a = 0.62 * Math.min(1, p.life * 1.4) * Math.min(1, (p.max - p.life) / 2.2);
+    if (inQuiet(p.x, p.y)) a *= 0.14;
     if (a <= 0.01) continue;
     const s = spriteOf(p.ch, p.rgb, p.size), w = s.width / DPR, h = s.height / DPR;
     sx.globalAlpha = a; sx.drawImage(s, p.x - w / 2, p.y - h / 2, w, h);
-    if (mode.g === '☍' && amt > 0.04) {
+    if (mode.g === '☍' && amt > 0.3) {
       const sh = spriteOf(p.ch, SHADOW, p.size);
-      sx.globalAlpha = a * amt * 0.85; sx.drawImage(sh, p.x - w / 2, 2 * core.y - p.y - h / 2, w, h);
+      sx.globalAlpha = a * (amt - 0.3) * 1.1; sx.drawImage(sh, p.x - w / 2, 2 * core.y - p.y - h / 2, w, h);
     }
-    if (copies > 1 && (n++ % every === 0)) {
-      const dx = p.x - core.x, dy = p.y - core.y;
-      sx.globalAlpha = a * amt * 0.6;
+    const dx = p.x - core.x, dy = p.y - core.y;
+    if (copies > 1 && dx * dx + dy * dy < core.r * core.r * 3.6 && (n++ % every === 0)) {
+      sx.globalAlpha = a * (amt - 0.3) * 0.75;
       for (let c = 1; c < copies; c++) {
-        const ang = (c * TAU) / copies, cs = Math.cos(ang), sn = Math.sin(ang);
-        sx.drawImage(s, core.x + dx * cs - dy * sn - w / 2, core.y + dx * sn + dy * cs - h / 2, w, h);
+        const ang = (c * TAU) / copies, cs = Math.cos(ang), sn = Math.sin(ang), cx = core.x + dx * cs - dy * sn, cy = core.y + dx * sn + dy * cs;
+        if (!inQuiet(cx, cy)) sx.drawImage(s, cx - w / 2, cy - h / 2, w, h);
       }
     }
   }
@@ -435,8 +434,8 @@ async function pulse(g) {
   save();
   setMode(g, 30);
   const at = buttonAt[g];
-  if (at) ripple(at.x, at.y, COLOR[g], 1.2, 260, 3);
-  if (wordsBox && !looped) spawnText(words, { x: wordsBox.left + wordsBox.width / 2, y: wordsBox.top + wordsBox.height / 2, w: wordsBox.width * 0.8, h: wordsBox.height * 0.6 }, core, [236, 230, 220], 30);
+  if (at) ripple(at.x, at.y, COLOR[g], 0.7, 180, 3);
+  if (wordsBox && !looped) spawnText(words, { x: wordsBox.left + wordsBox.width / 2, y: wordsBox.top + wordsBox.height / 2, w: wordsBox.width * 0.8, h: wordsBox.height * 0.6 }, core, [236, 230, 220], 14);
   render(p);
   settledDirty = true;
 
@@ -475,8 +474,8 @@ function take(p, d) {
     if (s) s.tokens++;
     p.answer += d.t;
     if (shownPulse() === p) answerDirty = true;
-    spawnText(d.t, core, null, COLOR[p.glyph], 6);
-    ripple(core.x, core.y, COLOR[p.glyph], 0.35, 160, 1.6);
+    spawnText(d.t, core, null, COLOR[p.glyph], 2);
+    if (s && s.tokens % 6 === 1) ripple(core.x, core.y, COLOR[p.glyph], 0.3, 120, 2.4);
     if (s) { const secs = (performance.now() - s.first) / 1000; renderEngine(`${s.tokens}${secs > 0.5 ? ` · ${(s.tokens / secs).toFixed(1)}/s` : ''}`); }
   }
   if (d.done) {
@@ -513,10 +512,10 @@ let lastTyped = '', run = 0;
 const boxAt = () => ({ x: wordsBox.right - 30 - Math.random() * 60, y: wordsBox.top + wordsBox.height * (0.3 + Math.random() * 0.4) });
 function moveKind(p, dt, k) {
   if (p.kind === 'drop') {
-    p.vy += 900 * dt; p.x += p.vx * dt * k; p.y += p.vy * dt * k;
-    if (p.y >= p.floor) { ripple(p.x, p.floor, p.rgb, 0.7, 170, 1.8); return true; }
+    p.vy += 420 * dt; p.x += p.vx * dt * k; p.y += p.vy * dt * k;
+    if (p.y >= p.floor) { ripple(p.x, p.floor, p.rgb, 0.35, 110, 2); return true; }
   } else if (p.kind === 'orbit') {
-    p.ang += dt * (0.5 + p.val * 0.11) * k;
+    p.ang += dt * (0.3 + p.val * 0.06) * k;
     p.x = core.x + Math.cos(p.ang) * p.rad; p.y = core.y + Math.sin(p.ang) * p.rad * 0.6;
   } else if (p.kind === 'float') {
     p.y -= 36 * dt * k; p.x += Math.sin(now * 1.3 + p.seed) * 14 * dt * k;
@@ -526,7 +525,7 @@ function moveKind(p, dt, k) {
     p.x += p.vx * dt * k; p.y += p.vy * dt * k;
     if (p.kind === 'home' && Math.hypot(tx - p.x, ty - p.y) < 12) return true;
   } else if (p.kind === 'spark') {
-    p.vx *= Math.exp(-dt * 2.6); p.vy *= Math.exp(-dt * 2.6); p.x += p.vx * dt * k; p.y += p.vy * dt * k;
+    p.vx *= Math.exp(-dt * 3); p.vy *= Math.exp(-dt * 3); p.x += p.vx * dt * k; p.y += p.vy * dt * k;
   }
   return false;
 }
@@ -535,22 +534,21 @@ function throwChar(ch) {
   const at = boxAt(), tint = mode.g ? COLOR[mode.g] : COLOR['❖'];
   run = ch === lastTyped && /\S/.test(ch) ? run + 1 : 1; lastTyped = ch;
   if (run >= 3) {
-    ripple(core.x, core.y, tint, Math.min(2.4, 0.35 * run), 210, 2.2);
-    for (let j = 0; j < Math.min(run, 9); j++) { const a = Math.random() * TAU, sp = 90 + run * 12; spawn({ x: core.x, y: core.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ch, rgb: tint, size: 16 + Math.min(run, 12), max: 3.5 }); }
+    if (run % 3 === 0) ripple(core.x, core.y, tint, Math.min(1, 0.2 * run), 150, 2.2);
+    for (let j = 0; j < Math.min(run, 3); j++) { const a = Math.random() * TAU, sp = 50 + Math.min(run, 12) * 6; spawn({ x: core.x, y: core.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ch, rgb: tint, size: 16 + Math.min(run, 10), max: 3.5 }); }
     return;
   }
-  if (ch === ' ') return ripple(at.x, at.y, tint, 0.35, 120, 1.2);
-  if (ch === '\n') { for (const f of [0.15, 0.5, 0.85]) ripple(wordsBox.left + wordsBox.width * f, wordsBox.bottom, tint, 0.7, 260, 2.2); return; }
-  if (GLYPHS.includes(ch)) { setMode(ch, 2.5); ripple(core.x, core.y, COLOR[ch], 1, 230, 2.6); spawnGlyph(ch); spawnGlyph(ch); return; }
-  if (ch === ',' || ch === ';' || ch === '—') { hush = 0.22; ripple(at.x, at.y, tint, 0.25, 70, 1.6); return; }
-  if (ch === '.') return spawn({ kind: 'drop', x: at.x, y: at.y, vx: (Math.random() - 0.5) * 30, vy: -60, floor: Math.min(H - 28, core.y + core.r * 1.5), ch: '•', rgb: INK, size: 18, max: 4 });
-  if (ch === '!') { for (let j = 0; j < 9; j++) { const a = (j / 9) * TAU + Math.random() * 0.3, sp = 260 + Math.random() * 120; spawn({ kind: 'spark', x: at.x, y: at.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ch: j % 3 ? '·' : '!', rgb: COLOR['☍'], size: 16, max: 1.1 }); } return ripple(at.x, at.y, COLOR['☍'], 0.8, 260, 1.4); }
+  if (ch === ' ') return;
+  if (ch === '\n') return ripple(wordsBox.left + wordsBox.width * 0.5, wordsBox.bottom, tint, 0.5, 160, 2.4);
+  if (GLYPHS.includes(ch)) { setMode(ch, 2.5); ripple(core.x, core.y, COLOR[ch], 0.6, 150, 2.6); spawnGlyph(ch); return; }
+  if (ch === ',' || ch === ';' || ch === '—') { hush = 0.22; return; }
+  if (ch === '.') return spawn({ kind: 'drop', x: at.x, y: at.y, vx: (Math.random() - 0.5) * 20, vy: -40, floor: Math.min(H - 28, core.y + core.r * 1.5), ch: '•', rgb: INK, size: 18, max: 4 });
+  if (ch === '!') { for (let j = 0; j < 5; j++) { const a = (j / 5) * TAU + Math.random() * 0.3, sp = 150 + Math.random() * 70; spawn({ kind: 'spark', x: at.x, y: at.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ch: j % 3 ? '·' : '!', rgb: COLOR['☍'], size: 16, max: 1.4 }); } return ripple(at.x, at.y, COLOR['☍'], 0.4, 160, 1.8); }
   if (ch === '?') return spawn({ kind: 'boomerang', x: at.x, y: at.y, ox: at.x, oy: at.y, vx: 0, vy: 0, turn: 1.1, ch: '?', rgb: COLOR['♇'], size: 22, max: 3 });
   if (/[0-9]/.test(ch)) { const val = Number(ch); return spawn({ kind: 'orbit', x: at.x, y: at.y, ang: Math.random() * TAU, rad: core.r * (0.35 + val * 0.07), val, ch, rgb: COLOR['❖'], size: 15, max: 14 }); }
   if (/\p{Extended_Pictographic}/u.test(ch)) return spawn({ kind: 'float', x: at.x, y: at.y, vx: 0, vy: 0, ch, rgb: INK, size: 26, max: 6 });
-  if (/\p{Lu}/u.test(ch)) { spawnText(ch, { x: at.x, y: at.y, w: 10, h: 10 }, core, INK, 1); const p = parts.at(-1); if (p) { p.size = 26; p.vx *= 1.6; p.vy *= 1.6; } return ripple(core.x, core.y, tint, 0.6, 200, 1.6); }
+  if (/\p{Lu}/u.test(ch)) { spawnText(ch, { x: at.x, y: at.y, w: 10, h: 10 }, core, INK, 1); const p = parts.at(-1); if (p) { p.size = 26; p.vx *= 1.25; p.vy *= 1.25; } return; }
   spawnText(ch, { x: at.x, y: at.y, w: 24, h: 12 }, core, INK, 1);
-  ripple(at.x, at.y, tint, 0.25, 150, 1.2);
 }
 function pullHome(n) {
   if (!wordsBox) return;
@@ -577,11 +575,8 @@ els.words.addEventListener('keydown', e => {
 });
 addEventListener('keydown', e => { if (e.key === 'Escape' && streaming) stop(); });
 
-let last = performance.now(), frameN = 0, wallAt = 0, savedAt = 0, cost = 0;
-let skip = false;
+let last = performance.now(), frameN = 0, wallAt = 0, savedAt = 0, cost = 0, nextGust = performance.now() / 1000 + 25 + Math.random() * 40;
 function frame(ms) {
-
-  if (streaming && (skip = !skip)) { requestAnimationFrame(frame); return; }
   const c0 = performance.now();
   const dt = Math.min(0.05, (ms - last) / 1000); last = ms; now = ms / 1000;
   if (needMeasure) { measureBoxes(); needMeasure = false; }
@@ -589,14 +584,17 @@ function frame(ms) {
   secretBeats(lastWatched, mem.watched, now); lastWatched = mem.watched;
   flash *= Math.exp(-dt * 1.4);
   beatHearts(now, dt);
-  if (!streaming && mode.goal > 0.35 && now > mode.until) mode.goal = 0.35;
+  if (!streaming && mode.goal > 0.12 && now > mode.until) mode.goal = 0.12;
+
+  if (!streaming && now > nextGust) { nextGust = now + 50 + Math.random() * 60; const g = GLYPHS[(Math.random() * 3) | 0]; for (let i = 0; i < 4; i++) spawnGlyph(g); ripple(core.x, core.y, COLOR[g], 0.35, 120, 3); }
   mode.amt += (mode.goal - mode.amt) * (1 - Math.exp(-dt * 1.6));
   stepStorm(dt);
   if (answerDirty && now - answerAt > 0.12) { answerDirty = false; answerAt = now; const p = shownPulse(); if (p) render(p); }
-  if (++frameN % 2 === 0 || !img) paintTexture(now);
+
+  if (++frameN % (streaming ? 4 : 2) === 0 || !img) paintTexture(now);
   if (now - wallAt > 0.5) { wallAt = now; refreshWall(); }
   gx.globalAlpha = 1; gx.drawImage(tex, 0, 0, W + TEX, H + TEX);
-  const glow = clamp(0.06 + heartNow() * 0.16 + flash * 0.22 + (streaming ? 0.08 : 0), 0, 0.55), c = mode.g ? COLOR[mode.g] : COLOR['❖'];
+  const glow = clamp(0.02 + heartNow() * 0.05 + flash * 0.18 + (streaming ? 0.05 : 0), 0, 0.4), c = mode.g ? COLOR[mode.g] : COLOR['❖'];
   const grad = gx.createRadialGradient(core.x, core.y, 0, core.x, core.y, core.r * 1.3);
   grad.addColorStop(0, `rgba(${c},${glow})`); grad.addColorStop(1, `rgba(${c},0)`);
   gx.fillStyle = grad; gx.fillRect(core.x - core.r * 1.3, core.y - core.r * 1.3, core.r * 2.6, core.r * 2.6);

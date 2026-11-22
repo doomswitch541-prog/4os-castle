@@ -5,7 +5,10 @@ export const FIELDS = Object.freeze([
   { glyph: '❖', name: 'Harmony', description: 'The irregular becomes a pattern. Leave a little chaos in it.', hue: 148 },
 ]);
 
-export const DEFAULTS = Object.freeze({ field: 0, pace: 12, chaos: 35, yaw: -.32, pitch: -.36 });
+export const ORDER = Object.freeze([1, 0, 2, 3]);
+export const stepField = (field, delta) => ORDER[(ORDER.indexOf(field) + delta + ORDER.length * 4) % ORDER.length];
+
+export const DEFAULTS = Object.freeze({ field: 1, pace: 12, chaos: 35, yaw: -.32, pitch: -.36 });
 export const SETTINGS_KEY = '4os-castle:sculpture:v1';
 export const clamp = (x, min, max) => Math.min(max, Math.max(min, x));
 

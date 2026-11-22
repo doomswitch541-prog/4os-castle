@@ -7,3 +7,4 @@ export const PAGES = Object.freeze([
 ]);
 
 export const FIELDS = Object.freeze(['transformation', 'polarity', 'expansion', 'symmetry']);
+export const FIELD_ORDER = Object.freeze(['polarity', 'transformation', 'expansion', 'symmetry']);
