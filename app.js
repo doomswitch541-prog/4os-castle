@@ -31,7 +31,7 @@ const FIELD_WORDS = [
   ['♇ (transformation)', 'watch it break apart, twist, and rebuild as they engage.'],
   ['☍ (polarity)', 'balancing dualities visually AND energetically.'],
   ['contraction/expansion cycle of existence (thanks, ♃)', '“Whoa…this spoke to a part of me I barely understood.”'],
-  ['❖ (divine symmetry)', 'creates a moment of harmonic resonance in the design itself.'],
+  ['❖ (divine symmetry)', 'A floating, meditative space'],
 ];
 function field(index) {
   settings.field = (index + FIELDS.length) % FIELDS.length;

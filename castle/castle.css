@@ -102,7 +102,7 @@ body[data-polarity="crystal"] .breathing span { -webkit-text-stroke-color: hsl(c
 .fractal .d0 { stroke-width: 0.7; }
 .fractal .d1 { stroke-width: 0.45; stroke: var(--accent); }
 .fractal .d2 { stroke-width: 0.3; }
-#rail { position: fixed; right: 14px; top: 150px; bottom: 28px; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; }
+#rail { position: fixed; right: max(14px, env(safe-area-inset-right)); top: 150px; bottom: calc(28px + env(safe-area-inset-bottom)); z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; }
 #rail button { position: relative; background: none; border: 0; color: var(--dim); cursor: pointer; padding: 0; font-family: "DejaVu Sans", "Noto Sans Symbols", var(--serif); }
 .rail-mark { width: 26px; height: 12px; }
 .rail-mark::before { content: ""; position: absolute; left: 6px; right: 6px; top: 5px; height: 2px; background: currentColor; opacity: 0.55; transition: opacity 0.3s, left 0.3s; }
@@ -266,7 +266,7 @@ body.lite .sheet { -webkit-backdrop-filter: none; backdrop-filter: none; backgro
 body.lite .codes, body.lite .fractal { filter: none; }
 body.lite .breathing span { filter: none; }
 body.lite .pocket-word, body.lite .words strong, body.lite .glyph-link { text-shadow: none; }
-.utilities { position: fixed; left: 18px; bottom: 16px; z-index: 6; }
+.utilities { position: fixed; left: max(18px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 6; }
 @media (max-width: 900px) { .utilities { display: none; } }
 .utilities button { font: italic 14px/1 var(--serif); color: var(--dim); background: none; border: 1px solid color-mix(in srgb, var(--dim) 40%, transparent); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
 .utilities button:hover, .utilities button:focus-visible { color: var(--ink); border-color: var(--accent); outline: none; }

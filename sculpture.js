@@ -7,8 +7,9 @@ const SAMPLES = 112;
 const seeded = index => { const n = Math.sin(index * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
 
 export class Sculpture {
-  constructor(canvas, settings, { onPulse, onOrbit, onCycle, onField, onGlyph, reduced = false }) {
+  constructor(canvas, settings, { onPulse, onOrbit, onCycle, onField, onGlyph, reduced = false, bare = false }) {
     this.canvas = canvas;
+    this.bare = bare;
     this.ctx = canvas.getContext('2d', { alpha: false });
     if (!this.ctx) throw new Error('This browser could not open a 2D canvas.');
     this.settings = settings;
@@ -275,7 +276,7 @@ export class Sculpture {
       return [this.points[off], this.points[off+1], this.points[off+2]];
     });
     if (!print) this.glyphHits = [];
-    glyphAnchors.forEach((anchor, i) => {
+    if (!this.bare) glyphAnchors.forEach((anchor, i) => {
       const [x,y] = project(...anchor);
       if (!print) this.glyphHits.push({ x, y, index: i });
       const selected = i === this.settings.field;

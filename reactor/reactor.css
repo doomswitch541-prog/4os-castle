@@ -14,14 +14,14 @@
   color-scheme: dark;
 }
 html { background: var(--bg); }
-body.reactor { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--serif); overflow-x: hidden; }
+body.reactor { margin: 0; min-height: 100vh; min-height: 100svh; background: var(--bg); color: var(--ink); font-family: var(--serif); overflow-x: hidden; }
 #ground, #storm { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 #ground { z-index: 0; }
 #storm { z-index: 1; pointer-events: none; }
 #reactor { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(300px, 500px) minmax(0, 1fr); column-gap: clamp(28px, 4vw, 72px);
   padding: 22px clamp(16px, 4vw, 64px) 0 clamp(16px, 5vw, 80px); box-sizing: border-box; text-shadow: var(--legible); }
 .say { grid-column: 1; grid-row: 1; padding-bottom: 24px; }
-.field { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: 46px; align-self: start; height: calc(100vh - 66px); display: flex; flex-direction: column; min-width: 0; }
+.field { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: 46px; align-self: start; height: calc(100vh - 66px); height: calc(100svh - 66px); display: flex; flex-direction: column; min-width: 0; }
 .rest { grid-column: 1; grid-row: 2; padding: 40px 0 120px; color: var(--dim); font-size: 15px; line-height: 1.6; max-width: 34em; }
 .title { margin: 0 0 10px; font-size: 26px; font-weight: normal; line-height: 1.25; }
 .title strong { font-weight: normal; color: var(--glint); }

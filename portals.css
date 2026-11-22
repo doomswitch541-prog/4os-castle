@@ -129,7 +129,7 @@ noscript { display: block; padding: 24px; text-align: center; }
   .glyph-keys { gap: 0; margin-left: -6px; }
   .said { margin-top: 6px; min-height: 0; }
   .notice { font-size: 15px; }
-  .entry { left: 16px; right: 16px; top: auto; bottom: 14px; width: auto; max-height: 34%; padding: 12px 0 0; }
+  .entry { left: 16px; right: 16px; top: auto; bottom: calc(14px + env(safe-area-inset-bottom)); width: auto; max-height: 34%; padding: 12px 0 0; }
   .entry::before { left: 0; right: 0; top: 0; bottom: auto; width: auto; height: 1px; background: linear-gradient(90deg, var(--gold), rgba(227, 194, 124, 0.35) 60%, transparent); }
   .entry-text { font-size: 17px; }
   body.open .writer, body.open .said { display: none; }
