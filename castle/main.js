@@ -449,8 +449,6 @@ function measureFlow() {
   flowAnchors = stations.map(st => st.el.getBoundingClientRect().top + window.scrollY);
   for (let i = n - 1; i >= 0; i--) flowAnchors[i] = Math.max(0, Math.min(flowAnchors[i], i === n - 1 ? max : flowAnchors[i + 1] - gap));
   flowAnchors[0] = 0;
-
-  if (!stations[0].kind && stations[0].words?.classList.contains('words-none')) flowAnchors[1] = 0;
 }
 function stationScroll(i) {
   if (!depth) return stations[i].el.getBoundingClientRect().top + scrollY - vh() * 0.08;
@@ -771,7 +769,7 @@ function toggleFlip() {
   inscription.setAttribute('aria-pressed', String(state.polarity === 'crystal'));
   rhythm.speed = state.polarity === 'crystal' ? 1.3 : 0.85;
   P.sculpture?.pulse(0, 1.2, time);
-  flipWave = { at: performance.now(), from: current };
+  flipWave = { at: frameClock, from: current };
   fallThrough(P, { count: 2 });
   insight(0.7);
   checkSupernova();
@@ -970,6 +968,29 @@ const turnQ = new THREE.Quaternion(), yAxis = new THREE.Vector3(0, 1, 0);
 
 const INSIDE = [{ at: [0.91, 0, 0], scale: 4.6, pitch: -Math.PI / 2 }, { at: [0, 0, 0.37], scale: 7.5, pitch: -Math.PI / 2 }, { at: [0, 0.1, 0], scale: 1.9, pitch: 0.4 }, { at: [0, 0, 0], scale: 1.6, pitch: 0.5 }];
 const insideV = new THREE.Vector3(), insideE = new THREE.Euler();
+
+const openingSt = stations[0], openingField = Number(openingSt.el.dataset.inside ?? -1);
+const openingForm = renderer && openingField >= 0 ? (() => { const t = new ThreadsKind(openingField); t.chaos = 0.5; t.breathScale = 1.6; t.group.visible = false; scene.add(t.group); return t; })() : null;
+const opening = { arrive: 0, rest: new THREE.Vector3() };
+function stepOpening(dt) {
+  if (!openingForm) return;
+  opening.arrive += (1 - opening.arrive) * Math.min(1, dt * 1.2);
+
+  const out = clamp((openingSt.z + HOLD - camera.position.z) / GAP, 0, 1);
+  const o = opening.arrive * (1 - smooth(0.12, 0.7, out));
+  openingForm.group.visible = o > 0.01;
+  if (!openingForm.group.visible) return;
+  const inside = INSIDE[openingField], scale = inside.scale * (1 + out * 0.5);
+  openingForm.yaw = reduced ? 0.3 : time * 0.045; openingForm.pitch = inside.pitch;
+  openingForm.group.scale.setScalar(scale);
+  opening.rest.set(0, 0, openingSt.z + HOLD);
+  insideV.fromArray(inside.at).multiplyScalar(scale).applyEuler(insideE.set(openingForm.pitch, openingForm.yaw, 0));
+  openingForm.group.position.copy(opening.rest).sub(insideV);
+
+  openingForm.update({ time, dt: rhythm.paused ? 0 : dt, breath: rhythm.breath, energy: rhythm.energy, phase: rhythm.phase, mode: modeValue, lit: litValue + 3.6 + rhythm.breath * 0.8, shift: state.shift,
+    pointerWorld: null, pointerStrength: 0, opacity: o * 3.2, pointScale: vh() * renderer.getPixelRatio() / (2 * Math.tan(camera.fov / 2 * Math.PI / 180)) * Math.min(2.2, scale),
+    speed: rhythm.speed, lock: rhythm.lock, mood, chaos: state.chaos / 35, swells: rhythm.swells, whole: Math.max(rhythm.manual ? rhythm.manual.weight : 0, rhythm.lock) });
+}
 function stepPocket(dt, now, travel, k) {
   if (scrollPos() !== pocket.lastY) { pocket.lastY = scrollPos(); pocket.stillAt = now; }
   const wants = depth && !flight && travel > 0.22 && travel < 0.78 && now - pocket.stillAt > 650;
@@ -1223,7 +1244,7 @@ function stepFalls(dt) {
   }
 }
 
-let flipWave = { at: -1e9, from: 0 };
+let flipWave = { at: -1e9, from: 0 }, frameClock = 0;
 for (const st of stations) st.mode = st.modeGoal = modeValue;
 
 let time = 0, last = performance.now(), fall = 0, lastS = 0, glide = -1;
@@ -1257,7 +1278,7 @@ function frame(now) {
   watchPace((now - last) / 1000);
   stepShow(now, (now - last) / 1000);
   const elapsed = Math.max(0.001, (now - last) / 1000);
-  const dt = clamp((now - last) / 1000, 0, 0.05); last = now;
+  const dt = clamp((now - last) / 1000, 0, 0.05); last = now; frameClock += dt;
   if (!rhythm.paused) time += dt;
   const breath = rhythm.update(rhythm.paused ? 0 : dt, time, now);
 
@@ -1351,6 +1372,7 @@ function frame(now) {
   stepBreak(dt); stepWords(dt); stepCycle(dt); stepSymmetry(); stepResonator(dt, now);
   traceStage('pocket');
   if (renderer) stepPocket(dt, now, travelNow, gapNow);
+  stepOpening(dt);
   stepFalls(rhythm.paused ? 0 : dt);
   traceStage('sculptures + text');
 
@@ -1359,7 +1381,7 @@ function frame(now) {
   for (const st of stations) {
     const dist = camera.position.z - st.z;
     const sculptFade = smooth(0.5, 2.6, dist) * (1 - smooth(7, 15, dist)), drawn = sculptFade + layerFade(dist);
-    if (now - flipWave.at >= Math.abs(st.i - flipWave.from) * 420) st.modeGoal = state.polarity === 'crystal' ? 1 : 0;
+    if (frameClock - flipWave.at >= Math.abs(st.i - flipWave.from) * 0.42) st.modeGoal = state.polarity === 'crystal' ? 1 : 0;
     st.mode += (st.modeGoal - st.mode) * Math.min(1, dt * 3);
     const textFade = depth ? smooth(1.2, 3.4, dist) * (1 - smooth(6.5, 13, dist)) : 1;
     st.fade = sculptFade;

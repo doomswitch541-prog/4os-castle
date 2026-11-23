@@ -273,6 +273,7 @@ body.flow .plane, body.flat .plane { min-height: 96vh; display: flex; flex-direc
 body.flow .plane:not([data-sculpture]), body.flat .plane:not([data-sculpture]) { min-height: 0; padding-top: 18vh; }
 body.flow .plane:first-child:not([data-sculpture]) { padding-top: 12vh; }
 body.flow .plane[data-anamorph] { min-height: 96vh; padding-top: 64vh; }
+body.flow .plane[data-inside] { min-height: 100vh; min-height: 100svh; padding-top: 0; }
 body.flat .plane { min-height: 0; padding: 12vh 0 4vh; }
 body.flow .words, body.flat .words { max-width: 640px; margin: 0 auto; width: 100%; padding: 26px 6px 14px; font-size: 16.5px; line-height: 1.6; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.42) 62%, transparent); text-shadow: 0 0 3px #000, 0 0 12px #000; }
 body.flow .words-opening, body.flat .words-opening { font-size: 19px; }
