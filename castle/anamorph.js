@@ -5,9 +5,8 @@ const CELL = 96, EM = 0.6;
 
 function rng(seed) { let a = seed >>> 0 || 1; return () => { a ^= a << 13; a >>>= 0; a ^= a >>> 17; a ^= a << 5; a >>>= 0; return a / 4294967296; }; }
 
-export function createAnamorph({ sentence, dust, texSpace, colorSpace, seed = 2026 }) {
-  const letters = [...sentence], dustChars = [...dust].filter(c => /\p{L}/u.test(c)).slice(0, 2000);
-  const chars = [...new Set([...letters, ...dustChars].filter(c => c.trim()))];
+export function letterAtlas(text, texSpace) {
+  const chars = [...new Set([...text].filter(c => c.trim()))];
   const cols = Math.ceil(Math.sqrt(chars.length)), rows = Math.ceil(chars.length / cols);
   const canvas = document.createElement('canvas'); canvas.width = cols * CELL; canvas.height = rows * CELL;
   const ctx = canvas.getContext('2d');
@@ -21,7 +20,12 @@ export function createAnamorph({ sentence, dust, texSpace, colorSpace, seed = 20
     advance.set(c, ctx.measureText(c).width / (CELL * EM));
   });
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = texSpace; tex.anisotropy = 4;
+  return { tex, cell, advance, EM };
+}
 
+export function createAnamorph({ sentence, dust, texSpace, colorSpace, seed = 2026 }) {
+  const letters = [...sentence], dustChars = [...dust].filter(c => /\p{L}/u.test(c)).slice(0, 2000);
+  const { tex, cell, advance } = letterAtlas([...letters, ...dustChars].join(''), texSpace);
   function mesh(list, hex) {
     const n = list.length, uv = new Float32Array(n * 8), index = new Uint32Array(n * 6);
     list.forEach((ch, i) => { const [u0, v0, u1, v1] = cell.get(ch); uv.set([u0, v0, u1, v0, u1, v1, u0, v1], i * 8); index.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3], i * 6); });

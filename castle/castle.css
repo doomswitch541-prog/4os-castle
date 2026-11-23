@@ -370,3 +370,6 @@ body.scrubbing, body.scrubbing * { cursor: ns-resize !important; user-select: no
 body.flow #rail { top: calc(122px + env(safe-area-inset-top)); bottom: calc(18px + env(safe-area-inset-bottom)); right: max(0px, env(safe-area-inset-right)); width: 30px; }
 body.flow #planes { padding-right: 30px; }
 body.flow #rail .rail-step { width: 30px; height: 28px; font-size: 16px; line-height: 28px; }
+.words-on-thread > * { opacity: 0.42; }
+body.depth .words-on-thread { font-size: 0.88em; }
+body.flow .words-on-thread > * { opacity: 0.6; }

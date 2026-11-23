@@ -4,7 +4,8 @@ import { Threads, seeded, clamp } from './threads.js';
 import { sitePath } from '../base.js';
 import { Rhythm } from './rhythm.js';
 import { createCodes } from './geometry.js';
-import { createAnamorph } from './anamorph.js';
+import { createAnamorph, letterAtlas } from './anamorph.js';
+import { createStrandWords } from './strand-words.js';
 
 const GAP = 14;
 const HOLD = 4.2;
@@ -187,6 +188,17 @@ for (const st of stations) {
   if (st.kind === 'return') { t.yaw = 2.2; t.pitch = -0.2; }
   st.sculpture = t;
   scene.add(t.group);
+}
+
+const threadWords = [];
+{
+  const carriers = renderer ? stations.filter(st => st.sculpture && st.words?.textContent.trim()) : [];
+  const atlas = carriers.length ? letterAtlas(carriers.map(st => st.words.textContent).join(' '), drawnWith === 'webgl' ? THREE.SRGBColorSpace : THREE.NoColorSpace) : null;
+  for (const st of carriers) {
+    const w = createStrandWords({ text: st.words.textContent, form: st.sculpture, atlas, colorSpace: drawnWith === 'webgl' ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace });
+    scene.add(w.mesh); threadWords.push({ st, w });
+    st.words.classList.add('words-on-thread');
+  }
 }
 
 const sym = { st: byId.symmetry, base: [], q0: [], t0: [], locked: [false, false, false, false] };
@@ -1429,6 +1441,8 @@ function frame(now) {
       }
     }
   }
+
+  for (const { st, w } of threadWords) w.update({ camera, dt: rhythm.paused ? 0 : dt, fade: st.sculpture.group.visible ? smooth(0.6, 1, st.fade) * (1 - pocket.open) : 0, size: st.sculpture.group.scale.x * 0.07 });
   traceStage('codes, legend, glyph buttons');
 
   if (byId['spiritual-codes'].fade > 0.01 || !depth) codes.update({ dt: rhythm.paused ? 0 : dt, breath, phase: rhythm.phase, energy: rhythm.energy, calm, insight: insightV });
@@ -1487,4 +1501,4 @@ async function warmUp() {
 const warm = { done: 0, error: '' };
 requestAnimationFrame(() => setTimeout(warmUp, 250));
 
-window.__castle = { cameBackTo: () => cameBackTo, returnShown: () => Boolean(returnFork && !returnFork.hidden), falls: () => falls.length, layerSeen: () => stations.filter(st => st.sculpture?.group.visible).map(st => st.id), modes: () => stations.map(st => +st.mode.toFixed(2)), stageStep: d => stageStep(d), warm: () => ({ ...warm }), trace: () => tr.log.slice(), renderer: () => drawnWith, cam: () => [camera.position.x, camera.position.y, camera.position.z, camera.fov, scrollY, glide], stations: () => stations.map(s => s.id), current: () => stations[current].id, state: () => ({ ...state }), triggerBreak, breaking: () => breakFx.running, wordsAct: id => wordsAct(byId[id]), pieces: () => sym.base.map((v, p) => ({ far: sym.locked[p] ? 0 : pieceGap(p, v), locked: sym.locked[p] })), wordsMoving: () => wordFx.length, goTo, openSheet, level: () => pace.level, show: () => ({ on: show.on, i: show.i, phase: show.phase, worst: show.worst, slow: show.slow, done: show.done, stage: stageWords.textContent, count: stageCount.textContent, lit: show.lit?.className || null, pace: pace2() }), travelToPocket, pocket: () => ({ k: pocket.k, open: pocket.open, words: pocket.words.length, branches: pocket.branches.map(b => ({ href: b.href, lit: Boolean(b.lit), trod: b.el.classList.contains('trod') })), form: pocket.form, treading: pocket.treading?.href || null }), toggleFlip, travelTo, depth: () => depth };
+window.__castle = { threadWords: () => threadWords.map(({ st, w }) => ({ id: st.id, visible: w.mesh.visible, seen: w.seen(), lines: w.lines() })), cameBackTo: () => cameBackTo, returnShown: () => Boolean(returnFork && !returnFork.hidden), falls: () => falls.length, layerSeen: () => stations.filter(st => st.sculpture?.group.visible).map(st => st.id), modes: () => stations.map(st => +st.mode.toFixed(2)), stageStep: d => stageStep(d), warm: () => ({ ...warm }), trace: () => tr.log.slice(), renderer: () => drawnWith, cam: () => [camera.position.x, camera.position.y, camera.position.z, camera.fov, scrollY, glide], stations: () => stations.map(s => s.id), current: () => stations[current].id, state: () => ({ ...state }), triggerBreak, breaking: () => breakFx.running, wordsAct: id => wordsAct(byId[id]), pieces: () => sym.base.map((v, p) => ({ far: sym.locked[p] ? 0 : pieceGap(p, v), locked: sym.locked[p] })), wordsMoving: () => wordFx.length, goTo, openSheet, level: () => pace.level, show: () => ({ on: show.on, i: show.i, phase: show.phase, worst: show.worst, slow: show.slow, done: show.done, stage: stageWords.textContent, count: stageCount.textContent, lit: show.lit?.className || null, pace: pace2() }), travelToPocket, pocket: () => ({ k: pocket.k, open: pocket.open, words: pocket.words.length, branches: pocket.branches.map(b => ({ href: b.href, lit: Boolean(b.lit), trod: b.el.classList.contains('trod') })), form: pocket.form, treading: pocket.treading?.href || null }), toggleFlip, travelTo, depth: () => depth };
