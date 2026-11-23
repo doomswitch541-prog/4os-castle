@@ -283,7 +283,7 @@ body.flow .words .w { display: inline-block; transition: transform 0.05s linear;
 body.flow .inscription, body.flat .inscription { width: auto; max-width: 640px; margin: 18px auto 0; font-size: 28px; display: block; }
 body.flow .breathing, body.flat .breathing { font-size: 84px; justify-content: center; margin-top: 24px; }
 body.flow .fractal, body.flat .fractal { width: min(80vw, 380px); height: auto; margin: 24px auto 0; display: block; }
-body.flow #rail, body.flow .utilities { display: none; }
+body.flow .utilities { display: none; }
 body.flow .plane:last-child { padding-bottom: 22vh; }
 body.flow .rail-glyph { width: 30px; height: 30px; font-size: 19px; line-height: 30px; }
 body.flow #rail button::after { display: none; }
@@ -353,3 +353,20 @@ body.lite .return-fork { -webkit-backdrop-filter: none; backdrop-filter: none; b
 @media (prefers-reduced-motion: reduce) { .return-fork { animation: none; } }
 body.flow .words h2, body.flat .words h2 { font-size: 21px; }
 body.flow::before { content: ""; position: fixed; z-index: 7; left: 0; right: 0; top: 0; height: calc(124px + env(safe-area-inset-top)); background: linear-gradient(rgba(0, 0, 0, 0.94) 62%, transparent); pointer-events: none; }
+#rail { touch-action: none; }
+#rail .thread { position: absolute; left: 50%; top: 0; width: 40px; margin-left: -20px; overflow: visible; pointer-events: none; z-index: -1; }
+.thread-path { fill: none; stroke: var(--gold); stroke-width: 1; opacity: 0.5; }
+.thread-glow { fill: none; stroke: var(--gold); stroke-width: 6; opacity: 0.07; stroke-linecap: round; }
+.thread-here { position: absolute; left: 50%; top: 0; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; pointer-events: none;
+  background: var(--corona, #fff4d8); box-shadow: 0 0 8px var(--gold), 0 0 20px color-mix(in srgb, var(--gold) 55%, transparent); }
+#rail .rail-mark, #rail .rail-glyph { width: 26px; height: 14px; font-size: 0; line-height: 0; transform: none; text-shadow: none; }
+#rail .rail-mark::before, #rail .rail-glyph::before { content: ""; position: absolute; left: 50%; right: auto; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px;
+  border-radius: 50%; background: currentColor; opacity: 0.6; transition: transform 0.3s, opacity 0.3s; }
+#rail .rail-glyph::before { width: 6px; height: 6px; margin: -3px 0 0 -3px; opacity: 0.75; }
+#rail .rail-mark[aria-current]::before, #rail .rail-glyph[aria-current]::before { left: 50%; opacity: 1; transform: scale(1.3); }
+#rail .rail-mark:hover::before, #rail .rail-glyph:hover::before { opacity: 1; transform: scale(1.5); }
+#rail .rail-mark.show-at::before, #rail .rail-glyph.show-at::before { left: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+body.scrubbing, body.scrubbing * { cursor: ns-resize !important; user-select: none; }
+body.flow #rail { top: calc(122px + env(safe-area-inset-top)); bottom: calc(18px + env(safe-area-inset-bottom)); right: max(0px, env(safe-area-inset-right)); width: 30px; }
+body.flow #planes { padding-right: 30px; }
+body.flow #rail .rail-step { width: 30px; height: 28px; font-size: 16px; line-height: 28px; }

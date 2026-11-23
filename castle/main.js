@@ -336,7 +336,7 @@ narrow.addEventListener('change', () => { chooseLayout(); layout(); });
 for (const st of stations) {
   const b = make('button', st.glyph ? 'rail-glyph' : 'rail-mark', railEl);
   b.type = 'button';
-  if (st.glyph) b.textContent = st.glyph;
+  if (st.glyph) b.dataset.glyph = st.glyph;
   b.setAttribute('aria-label', st.label);
   b.dataset.label = st.label;
   b.addEventListener('click', () => choose(st.i));
@@ -352,32 +352,60 @@ for (const st of stations) {
   }
 }
 
-const TABS = [['pulse', '🌀', 'PULSE'], ['polarity', '☍', 'polarity'], ['transformation', '♇', 'transformation'],
-  ['expansion', '♃', 'expansion'], ['symmetry', '❖', 'symmetry']];
-const tabbar = make('nav', 'tabbar', body); tabbar.setAttribute('aria-label', 'glyphs front and center');
-const capsule = make('span', 'tab-capsule', tabbar); capsule.setAttribute('aria-hidden', 'true');
-
 const SVGNS = 'http://www.w3.org/2000/svg';
-const tabLine = document.createElementNS(SVGNS, 'svg'); tabLine.setAttribute('class', 'tab-line'); tabLine.setAttribute('aria-hidden', 'true');
-const tabGlow = document.createElementNS(SVGNS, 'path'); tabGlow.setAttribute('class', 'tab-line-glow');
-const tabPath = document.createElementNS(SVGNS, 'path'); tabPath.setAttribute('class', 'tab-line-path');
-tabLine.append(tabGlow, tabPath); tabbar.prepend(tabLine);
-const bump = { x: -1, to: 0, h: 0, hTo: 0, k: 5, w: 0, d: '' };
-function stepTabLine(dt) {
-  if (!bump.w) return;
-  if (bump.x < 0) bump.x = bump.to;
-  bump.x += (bump.to - bump.x) * Math.min(1, dt * bump.k);
-  bump.h += (bump.hTo - bump.h) * Math.min(1, dt * bump.k * 0.8);
-  const rise = 19 * bump.h + rhythm.swells[2].level * 3, wide = 44 + rhythm.swells[1].level * 8;
-  let d = '';
-  for (let x = -60; x <= bump.w + 60; x += 6) { const t = (x - bump.x) / wide; d += `${d ? 'L' : 'M'}${x} ${(47 - rise * Math.exp(-t * t)).toFixed(1)}`; }
-  if (d !== bump.d) { bump.d = d; tabPath.setAttribute('d', d); tabGlow.setAttribute('d', d); }
+const thread = document.createElementNS(SVGNS, 'svg'); thread.setAttribute('class', 'thread'); thread.setAttribute('aria-hidden', 'true');
+const threadGlow = document.createElementNS(SVGNS, 'path'); threadGlow.setAttribute('class', 'thread-glow');
+const threadPath = document.createElementNS(SVGNS, 'path'); threadPath.setAttribute('class', 'thread-path');
+thread.append(threadGlow, threadPath); railEl.prepend(thread);
+const threadHere = make('span', 'thread-here', railEl); threadHere.setAttribute('aria-hidden', 'true');
+const bend = { y: -1, ys: [], top: 0, bottom: 0, d: '', out: 0 };
+
+function measureThread() {
+  if (!stations[0].railButton) return;
+  const r = railEl.getBoundingClientRect();
+  if (!r.height) return;
+  bend.ys = stations.map(st => { const b = st.railButton.getBoundingClientRect(); return b.top - r.top + b.height / 2; });
+  bend.top = bend.ys[0]; bend.bottom = bend.ys.at(-1); bend.d = '';
+  thread.setAttribute('viewBox', `0 0 40 ${Math.round(r.height)}`); thread.style.height = `${Math.round(r.height)}px`;
 }
-const tabEls = TABS.map(([id, glyph, word]) => {
-  const a = make('a', 'tab', tabbar); a.href = `#${id}`; a.setAttribute('aria-label', byId[id].label);
-  make('span', 'tab-glyph', a).textContent = glyph; make('span', 'tab-word', a).textContent = word;
-  return a;
-});
+
+const threadStage = () => (depth ? stageNow() : flowStage);
+const stageY = s => { const ys = bend.ys, i = clamp(Math.floor(s), 0, ys.length - 1), j = Math.min(ys.length - 1, i + 1); return lerp(ys[i], ys[j], clamp(s - i, 0, 1)); };
+function stepThread(dt) {
+  if (!bend.ys.length) return;
+  const to = stageY(threadStage());
+  if (bend.y < 0) bend.y = to;
+  bend.y += (to - bend.y) * Math.min(1, dt * 6);
+  const out = 6 + rhythm.swells[2].level * 2.5, wide = 24 + rhythm.swells[1].level * 6;
+  setStyle(threadHere, 'transform', `translate(${(-out).toFixed(1)}px, ${bend.y.toFixed(1)}px)`);
+  let d = '';
+  for (let y = bend.top - 10; y <= bend.bottom + 10; y += 5) { const t = (y - bend.y) / wide; d += `${d ? 'L' : 'M'}${(20 - out * Math.exp(-t * t)).toFixed(1)} ${y.toFixed(0)}`; }
+  if (d !== bend.d) { bend.d = d; threadPath.setAttribute('d', d); threadGlow.setAttribute('d', d); }
+}
+
+let scrubbedAt = -1e9;
+{
+  let drag = null;
+  railEl.addEventListener('pointerdown', e => { if ((e.pointerType === 'mouse' && e.button !== 0) || e.target.closest('.rail-step')) return; drag = { y: e.clientY, id: e.pointerId, moved: false }; });
+  railEl.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moved) { if (Math.abs(e.clientY - drag.y) < 6) return; drag.moved = true; railEl.setPointerCapture?.(e.pointerId); flight = null; momentum.v = 0; body.classList.add('scrubbing'); }
+    scrubTo(e.clientY);
+  });
+  const end = () => { if (drag?.moved) { scrubbedAt = performance.now(); body.classList.remove('scrubbing'); } drag = null; };
+  railEl.addEventListener('pointerup', end); railEl.addEventListener('pointercancel', end);
+
+  railEl.addEventListener('click', e => { if (performance.now() - scrubbedAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
+function scrubTo(clientY) {
+  const ys = bend.ys; if (!ys.length) return;
+  const y = clientY - railEl.getBoundingClientRect().top;
+  let i = 0; while (i < ys.length - 2 && ys[i + 1] < y) i++;
+  const f = clamp((y - ys[i]) / Math.max(1, ys[i + 1] - ys[i]), 0, 1);
+  if (depth) { scrollToY(clamp((i + f) / (stations.length - 1), 0, 1) * scrollMax()); return; }
+  const A = flowAnchors; if (A.length !== stations.length) return;
+  scrollToY(lerp(A[i], A[i + 1], f < 0.02 ? 0 : 0.38 + 0.62 * f));
+}
 const titleBtn = make('button', 'title-pill', body); titleBtn.type = 'button'; titleBtn.setAttribute('aria-haspopup', 'dialog');
 const scrim = make('div', 'sheet-scrim', body);
 const sheet = make('div', 'sheet', body); sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', 'scrollable glyph energy zones'); sheet.hidden = true;
@@ -429,20 +457,13 @@ addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 function showPlace() {
   const st = stations[current];
   titleBtn.textContent = st.label;
-  const tab = TABS.findIndex(t => t[0] === st.id);
-  tabEls.forEach((a, i) => i === tab ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
-  tabbar.classList.toggle('off-tab', tab < 0);
-  tabbar.style.setProperty('--slide', `${Math.round(vary(480, 0.7))}ms`); tabbar.style.setProperty('--over', (1.05 + Math.random() * 0.5).toFixed(2));
-  bump.w = tabbar.clientWidth; bump.hTo = tab >= 0 ? 1 : 0; bump.k = 2.5 + Math.random() * 5;
-  if (tab >= 0) bump.to = tabEls[tab].offsetLeft + tabEls[tab].offsetWidth / 2;
-  if (tab >= 0) capsule.style.transform = `translateX(${tabEls[tab].offsetLeft}px)`, capsule.style.width = `${tabEls[tab].offsetWidth}px`;
   sheetRows.forEach((r, i) => i === current ? r.a.setAttribute('aria-current', 'page') : r.a.removeAttribute('aria-current'));
 }
 
 let flight = null;
 let current = 0;
 
-let flowAnchors = [];
+let flowAnchors = [], flowStage = 0;
 function measureFlow() {
   if (depth !== false) return;
   const max = scrollMax(), n = stations.length, gap = Math.min(vh() * 0.3, 180);
@@ -1195,8 +1216,9 @@ function labelSteps() {
 
 function fitRail() {
   const items = [...railEl.children].filter(el => !el.hidden);
-  const fixed = items.reduce((h, el) => h + el.offsetHeight, 0), room = Math.max(120, vh() - 150 - 28);
+  const fixed = items.reduce((h, el) => h + el.offsetHeight, 0), room = Math.max(120, railEl.clientHeight || vh() - 150 - 28);
   railEl.style.gap = `${clamp((room - fixed) / Math.max(1, items.length - 1), 2, 9).toFixed(1)}px`;
+  measureThread();
 }
 addEventListener('resize', fitRail);
 requestAnimationFrame(fitRail);
@@ -1340,6 +1362,7 @@ function frame(now) {
     camera.position.set(camera.position.x + (Math.cos(angle) * swing - camera.position.x) * e, camera.position.y + (Math.sin(angle) * swing * 0.7 - camera.position.y) * e, camera.position.z + (gz - camera.position.z) * e);
     camera.up.set(0, 1, 0); camera.lookAt(camera.position.x * 0.4, camera.position.y * 0.4, camera.position.z - HOLD);
     next = travel < 0.5 ? k : k + 1;
+    flowStage = k + travel;
   }
   traceStage('plane change');
 
@@ -1353,7 +1376,7 @@ function frame(now) {
     showPlace();
   }
   if (started) address(pocket.open > 0.6 ? `#pocket-${pocket.k}` : `#${stations[current].id}`);
-  setVar(tabbar, '--rim', `${Math.round(rhythm.phase * 40 % 360 / 3) * 3}deg`); if (!sheet.hidden) setVar(sheet, '--rim', `${Math.round(rhythm.phase * 40 % 360 / 3) * 3}deg`);
+  if (!sheet.hidden) setVar(sheet, '--rim', `${Math.round(rhythm.phase * 40 % 360 / 3) * 3}deg`);
   camera.updateMatrixWorld();
 
   modeValue += ((state.polarity === 'crystal' ? 1 : 0) - modeValue) * Math.min(1, dt * 3);
@@ -1367,7 +1390,7 @@ function frame(now) {
   if (byId.glyphic.fade > 0.01 || !depth) { [...breathing.children].forEach((g, i) => setVar(g, '--breath', rhythm.swells[i].level.toFixed(2))); setVar(breathing, '--energy', rhythm.energy.toFixed(2)); }
 
   traceStage('colour + tab curve');
-  stepColour(); stepTabLine(dt);
+  stepColour(); stepThread(dt);
   traceStage('break, words, cycle, symmetry, resonator');
   stepBreak(dt); stepWords(dt); stepCycle(dt); stepSymmetry(); stepResonator(dt, now);
   traceStage('pocket');
