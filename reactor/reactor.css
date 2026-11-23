@@ -95,14 +95,16 @@ body.reactor { margin: 0; min-height: 100vh; min-height: 100svh; background: var
 .rest li { margin-bottom: 8px; }
 .rest .closing { margin-top: 22px; font-size: 20px; color: var(--glint); }
 @media (max-width: 860px) {
-  #reactor { display: flex; flex-direction: column; padding: 60px 16px 0; }
+  #reactor { display: flex; flex-direction: column; padding: 54px 16px 0; }
   .say, .field { display: contents; }
-  .title { order: 1; } .lead { order: 2; } .part-frame { order: 3; } .frame-line { order: 4; }
-  .part-field { order: 5; } .toss-line { order: 6; } #words { order: 7; }
-  .glyphs-line { order: 8; } .glyphs { order: 9; } .engine { order: 10; }
-  .core { order: 11; min-height: 40vh; } .answer { order: 12; max-height: none; overflow: visible; } .grow-line { order: 13; } .rest { order: 14; }
+  .title { order: 1; } .lead { order: 2; }
+  .core { order: 3; flex: none; height: 58vh; height: 58svh; min-height: 300px; margin: 0 -16px 10px; padding: 6px 16px 0; box-sizing: border-box; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+  .answer { order: 4; max-height: none; overflow: visible; }
+  .part-frame { order: 5; } .frame-line { order: 6; } .part-field { order: 7; } .toss-line { order: 8; } #words { order: 9; }
+  .glyphs-line { order: 10; } .glyphs { order: 11; } .engine { order: 12; } .grow-line { order: 13; } .rest { order: 14; }
+  .self-line { bottom: 6%; font-size: 15px; }
   .title { font-size: 22px; margin-bottom: 6px; }
-  .lead { font-size: 15.5px; margin-bottom: 10px; }
+  .lead { font-size: 15.5px; margin-bottom: 4px; }
   .part { margin: 10px 0 4px; font-size: 12px; }
   .quiet, .toss-line, .glyphs-line { font-size: 14px; margin-bottom: 8px; }
   #words { min-height: 64px; font-size: 17px; }

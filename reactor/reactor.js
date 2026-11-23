@@ -7,6 +7,8 @@ const COLOR = { '♇': [205, 184, 242], '☍': [241, 203, 150], '❖': [140, 200
 const SHADOW = [90, 82, 184];
 const TAU = Math.PI * 2;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const PHONE = matchMedia('(max-width: 860px)');
 const $ = id => document.getElementById(id);
 const els = {
   words: $('words'), model: $('model'), state: $('engine-state'), stop: $('stop'), field: $('field'), core: $('core'), selfLine: $('self-line'),
@@ -170,8 +172,10 @@ function setMode(g, hold = 18) { mode.g = g; mode.goal = 1; mode.until = now + h
 const parts = [];
 const MAXP = 140;
 function spawn(o) {
-  if (parts.length >= MAXP) parts.splice(0, parts.length - MAXP + 1);
-  parts.push({ life: 0, max: 7, size: 16, seed: Math.random() * TAU, ...o });
+  if (parts.length >= MAXP) { const i = parts.findIndex(q => q.held === undefined && q.kind !== 'spiral'); parts.splice(i < 0 ? 0 : i, 1); }
+  const p = { life: 0, max: 7, size: 16, seed: Math.random() * TAU, ...o };
+  if (PHONE.matches) p.size *= 1.3;
+  parts.push(p);
 }
 function spawnGlyph(g) {
   const a = Math.random() * TAU, s = 18 + Math.random() * 24;
@@ -193,9 +197,112 @@ addEventListener('pointermove', e => {
 }, { passive: true });
 addEventListener('pointerleave', () => { pointer = null; });
 
+let trailAt = 0;
+const inCore = (x, y) => { const c = els.core.getBoundingClientRect(); return x >= c.left && x <= c.right && y >= c.top && y <= c.bottom; };
+addEventListener('touchmove', e => {
+  const t = e.touches[0]; if (!t) return;
+  pointer = { x: t.clientX, y: t.clientY };
+  if (now - trailAt > 0.12 && inCore(t.clientX, t.clientY)) { trailAt = now; ripple(t.clientX, t.clientY, COLOR[mode.g || '❖'], 1.1, 150, 1.6); }
+}, { passive: true });
+for (const type of ['touchend', 'touchcancel']) addEventListener(type, () => { pointer = null; }, { passive: true });
+
+let downAt = null, selfHeat = 0, trembling = false;
+const HOT = [255, 248, 236], EMBER = [241, 203, 150];
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const charge = { on: false, level: 0, t0: 0, line: '', chars: [], k: 0, next: 0, ticks: 0 };
+const spiral = { on: false, until: 0, spin: 0 };
+els.core.addEventListener('pointerdown', e => { if (e.button === 0 || e.pointerType !== 'mouse') downAt = { x: e.clientX, y: e.clientY, t: now }; }, { passive: true });
+addEventListener('pointermove', e => { if (downAt && !charge.on && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 14) downAt = null; }, { passive: true });
+
+els.core.addEventListener('touchmove', e => { if (charge.on && e.cancelable) e.preventDefault(); }, { passive: false });
+els.core.addEventListener('contextmenu', e => { if (downAt || charge.on) e.preventDefault(); });
+function letGo(e) {
+  const d = downAt; downAt = null;
+  if (charge.on) return discharge();
+  if (e.type === 'pointerup' && d && now - d.t < 0.4 && Math.hypot(e.clientX - d.x, e.clientY - d.y) <= 12) burst(e.clientX, e.clientY);
+}
+addEventListener('pointerup', letGo, true);
+addEventListener('pointercancel', letGo, true);
+addEventListener('blur', () => { downAt = null; if (charge.on) discharge(); });
+function burst(x, y) {
+  const g = mode.g || ROUND[self.turn % ROUND.length], text = (self.phase !== 'rest' && self.text) || pickLine();
+  ripple(x, y, COLOR[g], 0.8, 210, 2.6); flash = Math.max(flash, 0.3);
+  const chars = [...(text || '')].filter(c => c.trim()).slice(0, 16);
+  chars.forEach((ch, i) => { const a = (i / chars.length) * TAU + Math.random() * 0.4, s = 90 + Math.random() * 90; spawn({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, ch, rgb: COLOR[g], size: 17 + Math.random() * 5, max: 6 + Math.random() * 3 }); });
+  if (PHONE.matches) navigator.vibrate?.(8);
+}
+function beginCharge() {
+  stepAside();
+  if (spiral.on) releaseSpiral();
+  const line = pickLine();
+  Object.assign(charge, { on: true, level: 0, t0: now, line, chars: [...line].slice(0, 130), k: 0, next: now, ticks: 0 });
+}
+function stepCharge(dt) {
+  if (downAt && !charge.on && now - downAt.t > 0.24) beginCharge();
+  if (spiral.on) { spiral.spin += dt * (reduced ? 0.04 : 0.11); if (now > spiral.until) releaseSpiral(); }
+  if (!charge.on) return;
+  charge.level = Math.min(1, (now - charge.t0) / 2.4);
+  while (now >= charge.next && charge.k < charge.chars.length) {
+    const i = charge.k++, ch = charge.chars[i];
+    charge.next += 0.05 - charge.level * 0.03;
+    if (!ch.trim()) continue;
+    const a = Math.random() * TAU, R = core.r * (1.1 + Math.random() * 0.4), x = core.x + Math.cos(a) * R, y = core.y + Math.sin(a) * R * 1.2;
+    spawn({ x, y, vx: (core.x - x) * 0.5, vy: (core.y - y) * 0.5, ch, rgb: INK, size: 16, max: 60, held: i });
+  }
+  const tick = Math.floor(charge.level * 3);
+  if (tick > charge.ticks) { charge.ticks = tick; if (PHONE.matches) navigator.vibrate?.(tick === 3 ? 18 : 6); }
+}
+function discharge(text = charge.line, rgb = HOT, level = charge.level) {
+  const held = parts.filter(p => p.held !== undefined);
+  charge.on = false; selfHeat = 0;
+  if (level < 0.12) { for (const p of held) { p.held = undefined; p.max = p.life + 2; } return; }
+  ripple(core.x, core.y, EMBER, 1.2 + level, 260, 3.2); ripple(core.x, core.y, HOT, 0.8, 150, 2.4);
+  flash = Math.max(flash, 0.5 + level * 0.5);
+  if (PHONE.matches) navigator.vibrate?.(24);
+  for (const p of parts) if (p.held === undefined && !p.kind) {
+    const dx = p.x - core.x, dy = p.y - core.y, d = Math.hypot(dx, dy) || 1, sp = 160 + 260 * level;
+    p.vx += dx / d * sp; p.vy += dy / d * sp;
+  }
+
+  const chars = [...text].slice(0, 130), size = 16 * (PHONE.matches ? 1.3 : 1), gap = size * 0.6, pitch = size * 1.45;
+  const byIdx = new Map(held.map(p => [p.held, p]));
+  let r = core.r * 0.2, th = -Math.PI / 2;
+  chars.forEach((ch, i) => {
+    if (ch.trim()) {
+      let q = byIdx.get(i);
+      if (!q) { spawn({ x: core.x, y: core.y, vx: 0, vy: 0, ch, rgb, size: 16, max: 60 }); q = parts[parts.length - 1]; }
+      byIdx.delete(i);
+      const sp = 220 + 220 * level;
+      Object.assign(q, { kind: 'spiral', r, th, fired: q.life, vx: Math.cos(th) * sp, vy: Math.sin(th) * sp, rgb, held: undefined, max: q.life + 60 });
+    }
+    const dth = gap / r; th += dth; r += pitch * dth / TAU;
+  });
+  for (const q of byIdx.values()) { q.held = undefined; q.max = q.life + 2; }
+  Object.assign(spiral, { on: true, until: now + 7 + level * 3, spin: 0 });
+  selfLine('', text);
+}
+function releaseSpiral() {
+  for (const p of parts) if (p.kind === 'spiral') {
+    const dx = p.x - core.x, dy = p.y - core.y, d = Math.hypot(dx, dy) || 1;
+    p.kind = undefined; p.rot = undefined; p.max = p.life + 3 + Math.random() * 2; p.vx = -dy / d * 30; p.vy = dx / d * 30;
+  }
+  spiral.on = false; if (self.phase === 'rest') selfLine();
+}
+
+function drawEmber() {
+  const heat = Math.max(charge.on ? charge.level : 0, selfHeat);
+  if (!PHONE.matches && heat < 0.01) return;
+  const flick = 1 + Math.sin(now * 2.2) * 0.08 + Math.sin(now * 13.7) * 0.07 * heat, er = (4 + heat * 26 + flash * 8) * flick, c = mix(EMBER, HOT, heat);
+  const eg = gx.createRadialGradient(core.x, core.y, 0, core.x, core.y, er * 3.2);
+  eg.addColorStop(0, `rgba(${HOT},${0.45 + heat * 0.55})`); eg.addColorStop(0.2, `rgba(${c},${0.3 + heat * 0.5})`); eg.addColorStop(1, `rgba(${c},0)`);
+  gx.fillStyle = eg; gx.fillRect(core.x - er * 3.2, core.y - er * 3.2, er * 6.4, er * 6.4);
+  const tr = reduced ? 0 : heat * heat * 3.2;
+  if (tr || trembling) { const t = tr ? `translate(${((Math.random() - 0.5) * tr).toFixed(1)}px,${((Math.random() - 0.5) * tr).toFixed(1)}px)` : ''; storm.style.transform = ground.style.transform = t; trembling = Boolean(tr); }
+}
+
 let mutateAt = 0;
 function stepStorm(dt) {
-  const k = reduced ? 0.35 : 1, amt = mode.amt, shell = core.r * 0.55;
+  const k = reduced ? 0.35 : 1, amt = mode.amt, shell = core.r * (PHONE.matches ? 0.78 : 0.55);
   if (mode.g === '♇' && mode.amt > 0.3 && now - mutateAt > 1.1) {
     mutateAt = now;
     const src = [...(shownPulse()?.answer || els.words.value || '')].filter(c => c.trim());
@@ -211,7 +318,10 @@ function stepStorm(dt) {
     if (p.kind) continue;
     const dx = p.x - core.x, dy = p.y - core.y, d = Math.sqrt(dx * dx + dy * dy) + 0.001, ux = dx / d, uy = dy / d;
     let ax = -uy * 10 - ux * (d - shell) * 0.08, ay = ux * 10 - uy * (d - shell) * 0.08;
-    if (mode.g === '♇') {
+    if (charge.on) {
+      const L = charge.level, tight = core.r * (0.1 + 0.2 * (1 - L)), pull = 1.4 + 2.6 * L, spin = 30 + 130 * L;
+      ax = -ux * (d - tight) * pull - uy * spin; ay = -uy * (d - tight) * pull + ux * spin;
+    } else if (mode.g === '♇') {
       ax += -uy * 40 * amt + ux * Math.sin(now * 0.9 + p.seed) * 22 * amt;
       ay += ux * 40 * amt + uy * Math.sin(now * 0.9 + p.seed) * 22 * amt;
     } else if (mode.g === '☍') {
@@ -222,7 +332,7 @@ function stepStorm(dt) {
       ax -= ux * (d - target) * 0.8 * amt; ay -= uy * (d - target) * 0.8 * amt;
       ax += -uy * 18 * amt; ay += ux * 18 * amt;
     }
-    if (pointer) { const px = p.x - pointer.x, py = p.y - pointer.y, pd = px * px + py * py; if (pd < 4900) { ax += px / Math.sqrt(pd + 1) * 60; ay += py / Math.sqrt(pd + 1) * 60; } }
+    if (pointer && !charge.on) { const px = p.x - pointer.x, py = p.y - pointer.y, pd = px * px + py * py; if (pd < (PHONE.matches ? 8100 : 4900)) {   ax += px / Math.sqrt(pd + 1) * 60; ay += py / Math.sqrt(pd + 1) * 60; } }
     const damp = Math.exp(-dt * 2);
     p.vx = (p.vx + ax * dt) * damp; p.vy = (p.vy + ay * dt) * damp;
     p.x += p.vx * dt * kk; p.y += p.vy * dt * kk;
@@ -253,14 +363,15 @@ function drawStorm() {
   sx.fillStyle = 'rgba(0,0,0,0.6)';
   for (const q of quiet) sx.fillRect(q.left - 6, q.top - 6, q.width + 12, q.height + 12);
   sx.globalCompositeOperation = 'source-over';
-  const amt = mode.amt, copies = mode.g === '❖' && amt > 0.3 ? 6 : 1;
+  const amt = mode.amt, copies = mode.g === '❖' && amt > 0.3 ? 6 : 1, bright = PHONE.matches ? 0.8 : 0.62;
   const every = copies > 1 ? Math.max(1, Math.ceil(parts.length * (copies - 1) / 540)) : 1;
   let n = 0;
   for (const p of parts) {
-    let a = 0.62 * Math.min(1, p.life * 1.4) * Math.min(1, (p.max - p.life) / 2.2);
+    let a = bright * Math.min(1, p.life * 1.4) * Math.min(1, (p.max - p.life) / 2.2);
     if (inQuiet(p.x, p.y)) a *= 0.14;
     if (a <= 0.01) continue;
     const s = spriteOf(p.ch, p.rgb, p.size), w = s.width / DPR, h = s.height / DPR;
+    if (p.rot !== undefined) { sx.globalAlpha = a; sx.save(); sx.translate(p.x, p.y); sx.rotate(p.rot); sx.drawImage(s, -w / 2, -h / 2, w, h); sx.restore(); continue; }
     sx.globalAlpha = a; sx.drawImage(s, p.x - w / 2, p.y - h / 2, w, h);
     if (mode.g === '☍' && amt > 0.3) {
       const sh = spriteOf(p.ch, SHADOW, p.size);
@@ -525,6 +636,11 @@ function moveKind(p, dt, k) {
     p.vx = (p.vx + (tx - p.x) * 3.4 * dt) * Math.exp(-dt * 2.4); p.vy = (p.vy + (ty - p.y) * 3.4 * dt) * Math.exp(-dt * 2.4);
     p.x += p.vx * dt * k; p.y += p.vy * dt * k;
     if (p.kind === 'home' && Math.hypot(tx - p.x, ty - p.y) < 12) return true;
+  } else if (p.kind === 'spiral') {
+    const th = p.th + spiral.spin, tx = core.x + Math.cos(th) * p.r, ty = core.y + Math.sin(th) * p.r;
+    if (p.life - p.fired < 0.28) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.exp(-dt * 2); p.vy *= Math.exp(-dt * 2); }
+    else { const e = 1 - Math.exp(-dt * 5.5); p.x += (tx - p.x) * e; p.y += (ty - p.y) * e; }
+    p.rot = th + Math.PI / 2;
   } else if (p.kind === 'spark') {
     p.vx *= Math.exp(-dt * 3); p.vy *= Math.exp(-dt * 3); p.x += p.vx * dt * k; p.y += p.vy * dt * k;
   }
@@ -585,7 +701,7 @@ function pickLine() {
   return lines.length ? lines[Math.floor(Math.random() * lines.length)] : '';
 }
 let lastTouch = -Infinity;
-const self = { phase: 'rest', until: performance.now() / 1000 + 6, chars: [], k: 0, next: 0, turn: 0, fed: '', text: '' };
+const self = { phase: 'rest', until: performance.now() / 1000 + (PHONE.matches ? 3 : 6), chars: [], k: 0, next: 0, turn: 0, fed: '', text: '' };
 function selfLine(g, text) {
   const el = els.selfLine; if (!el) return;
   if (!text) { el.classList.remove('on'); return; }
@@ -593,13 +709,17 @@ function selfLine(g, text) {
   el.append(text.length > 160 ? `${text.slice(0, 159)}…` : text); el.classList.add('on');
 }
 function stepAside() { lastTouch = now; if (self.phase !== 'rest') { self.phase = 'rest'; self.until = now + 4; selfLine(); } }
-for (const type of ['keydown', 'pointerdown', 'wheel', 'touchstart', 'input']) addEventListener(type, stepAside, { passive: true, capture: true });
+
+for (const type of ['keydown', 'input']) addEventListener(type, stepAside, { passive: true, capture: true });
+addEventListener('pointerdown', e => { if (e.target.closest?.('button, textarea, select, input, a, summary')) stepAside(); }, { passive: true, capture: true });
 function fromEdge(ch) {
-  const a = Math.random() * TAU, R = core.r * (2.2 + Math.random() * 0.8), x = core.x + Math.cos(a) * R, y = core.y + Math.sin(a) * R * 0.8;
-  spawn({ x, y, vx: (core.x - x) * 0.22, vy: (core.y - y) * 0.22, ch, rgb: INK, size: 15, max: 7 });
+
+  const phone = PHONE.matches, a = Math.random() * TAU, R = core.r * (phone ? 1.15 + Math.random() * 0.35 : 2.2 + Math.random() * 0.8), x = core.x + Math.cos(a) * R, y = core.y + Math.sin(a) * R * (phone ? 1.25 : 0.8);
+  spawn({ x, y, vx: (core.x - x) * 0.22, vy: (core.y - y) * 0.22, ch, rgb: INK, size: 15, max: phone ? 9 : 7 });
 }
 function selfPlay() {
-  if (streaming || now - lastTouch < 9) return;
+  if (streaming || charge.on || downAt || now - lastTouch < (PHONE.matches ? 5 : 9)) return;
+  if (self.phase === 'rest' && spiral.on) return;
   if (self.phase === 'rest') {
     if (now < self.until) return;
     const text = self.turn % 2 && self.fed ? self.fed : pickLine();
@@ -611,17 +731,27 @@ function selfPlay() {
   }
   if (self.phase === 'in') {
     while (now >= self.next && self.k < self.chars.length) { fromEdge(self.chars[self.k++]); self.next += 0.13; }
+    if (PHONE.matches) selfHeat = 0.85 * Math.min(1, self.k / self.chars.length + Math.max(0, now - self.next) / 1.2 * 0.15);
     if (self.k < self.chars.length || now < self.next + 1.2) return;
     const g = ROUND[self.turn++ % ROUND.length], made = transform(g, self.text);
     self.fed = made.slice(0, 200);
     ripple(core.x, core.y, COLOR[g], 0.6, 140, 3.2); flash = Math.max(flash, 0.45);
     setMode(g, 9);
+    if (PHONE.matches) { discharge(made, COLOR[g], 0.8); Object.assign(self, { phase: 'out', until: spiral.until }); return; }
     spawnText(made, core, null, COLOR[g], reduced ? 8 : 18);
     selfLine(g, made);
     Object.assign(self, { phase: 'out', until: now + 9 });
     return;
   }
-  if (self.phase === 'out' && now > self.until) { self.phase = 'rest'; self.until = now + 16 + Math.random() * 14; selfLine(); }
+  if (self.phase === 'out' && now > self.until) { self.phase = 'rest'; self.until = now + (PHONE.matches ? 8 + Math.random() * 6 : 16 + Math.random() * 14); selfLine(); }
+}
+
+const drifting = { text: [], k: 0, at: 0 };
+function drift() {
+  if (!PHONE.matches || streaming || charge.on || spiral.on || self.phase !== 'rest' || now < drifting.at || parts.length > 18) return;
+  drifting.at = now + (reduced ? 2.4 : 0.85);
+  if (drifting.k >= drifting.text.length) { drifting.text = [...pickLine()].filter(c => /[\p{L}\p{N}]/u.test(c)); drifting.k = 0; if (!drifting.text.length) return; }
+  fromEdge(drifting.text[drifting.k++]);
 }
 
 let last = performance.now(), frameN = 0, wallAt = 0, savedAt = 0, cost = 0, nextGust = performance.now() / 1000 + 25 + Math.random() * 40;
@@ -635,8 +765,10 @@ function frame(ms) {
   beatHearts(now, dt);
   if (!streaming && mode.goal > 0.12 && now > mode.until) mode.goal = 0.12;
 
-  if (!streaming && now > nextGust) { nextGust = now + 50 + Math.random() * 60; const g = GLYPHS[(Math.random() * 3) | 0]; for (let i = 0; i < 4; i++) spawnGlyph(g); ripple(core.x, core.y, COLOR[g], 0.35, 120, 3); }
+  if (!streaming && now > nextGust) { nextGust = now + 50 + Math.random() * 60; const g = GLYPHS[(Math.random() * 3) | 0]; if (PHONE.matches) flash = Math.max(flash, 0.25); else for (let i = 0; i < 4; i++) spawnGlyph(g); ripple(core.x, core.y, COLOR[g], 0.35, 120, 3); }
+  stepCharge(dt);
   selfPlay();
+  drift();
   mode.amt += (mode.goal - mode.amt) * (1 - Math.exp(-dt * 1.6));
   stepStorm(dt);
   if (answerDirty && now - answerAt > 0.12) { answerDirty = false; answerAt = now; const p = shownPulse(); if (p) render(p); }
@@ -644,11 +776,12 @@ function frame(ms) {
   if (++frameN % (streaming ? 4 : 2) === 0 || !img) paintTexture(now);
   if (now - wallAt > 0.5) { wallAt = now; refreshWall(); }
   gx.globalAlpha = 1; gx.drawImage(tex, 0, 0, W + TEX, H + TEX);
-  const glow = clamp(0.02 + heartNow() * 0.05 + flash * 0.18 + (streaming ? 0.05 : 0), 0, 0.4), c = mode.g ? COLOR[mode.g] : COLOR['❖'];
+  const glow = clamp((PHONE.matches ? 0.05 : 0.02) + heartNow() * 0.05 + flash * 0.18 + (streaming ? 0.05 : 0), 0, 0.4), c = mode.g ? COLOR[mode.g] : COLOR['❖'];
   const grad = gx.createRadialGradient(core.x, core.y, 0, core.x, core.y, core.r * 1.3);
   grad.addColorStop(0, `rgba(${c},${glow})`); grad.addColorStop(1, `rgba(${c},0)`);
   gx.fillStyle = grad; gx.fillRect(core.x - core.r * 1.3, core.y - core.r * 1.3, core.r * 2.6, core.r * 2.6);
   gx.drawImage(wall, 0, 0, W, H);
+  drawEmber();
   drawStorm();
   if (now - savedAt > 5) { savedAt = now; save(); }
   cost += (performance.now() - c0 - cost) * 0.05;
@@ -667,5 +800,5 @@ window.__reactor = {
   secrets: () => secrets.slice(), tuned: () => now < tunedUntil, hush: () => hush,
   kinds: () => parts.reduce((m, p) => { const k = p.kind || 'mote'; m[k] = (m[k] || 0) + 1; return m; }, {}),
   depths: () => mem.pulses.map(depthOf), cost: () => cost,
-  self: () => ({ phase: self.phase, turn: self.turn, text: self.text, fed: self.fed }), selfSoon: () => { lastTouch = -Infinity; self.phase = 'rest'; self.until = now; }, core: () => ({ ...core }), watch: s => { mem.watched += s; },
+  self: () => ({ phase: self.phase, turn: self.turn, text: self.text, fed: self.fed }), selfSoon: () => { lastTouch = -Infinity; self.phase = 'rest'; self.until = now; }, burst: (x, y) => burst(x, y), pointer: () => pointer, charge: () => ({ on: charge.on, level: charge.level, held: parts.filter(p => p.held !== undefined).length }), spiral: () => ({ on: spiral.on, letters: parts.filter(p => p.kind === 'spiral').length }), core: () => ({ ...core }), watch: s => { mem.watched += s; },
 };

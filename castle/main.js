@@ -4,6 +4,7 @@ import { Threads, seeded, clamp } from './threads.js';
 import { sitePath } from '../base.js';
 import { Rhythm } from './rhythm.js';
 import { createCodes } from './geometry.js';
+import { createAnamorph } from './anamorph.js';
 
 const GAP = 14;
 const HOLD = 4.2;
@@ -40,7 +41,7 @@ function scrollToY(y) { scrollTo(0, y); viewport.y = Math.max(0, viewport.max ? 
 new ResizeObserver(() => {
   const w = document.documentElement.clientWidth || window.innerWidth, h = document.documentElement.clientHeight || window.innerHeight;
   if (w !== viewport.w || h !== viewport.h) dispatchEvent(new Event('resize'));
-  else measureScroll();
+  else { measureScroll(); try { measureFlow(); } catch {   } }
 }).observe(document.documentElement);
 
 const DEFAULT_STATE = { polarity: 'shadow', rebuilds: 0, flips: 0, cycled: false, resonance: false, lit: false, shift: 0, visited: [], choices: 0, pockets: [], trod: {}, showPace: 0, renderer: 'webgpu', last: '', cycle: 12, chaos: 35 };
@@ -82,6 +83,8 @@ const stations = [...document.querySelectorAll('.plane')].map((el, i) => ({
 const byId = Object.fromEntries(stations.map(s => [s.id, s]));
 
 for (const st of stations) { st.el.dataset.plane = st.id; st.el.removeAttribute('id'); }
+
+for (const st of stations) st.words?.classList.toggle('words-none', !st.words.textContent.trim());
 body.dataset.polarity = state.polarity;
 body.classList.toggle('lit', state.lit);
 
@@ -206,13 +209,6 @@ const breathing = make('div', 'breathing');
 breathing.setAttribute('aria-hidden', 'true');
 for (const g of ['☍', '♇', '❖']) make('span', null, breathing).textContent = g;
 
-const astraLayers = [0, 1, 2].map(i => {
-  const el = make('div', `astra-layer astra-layer-${i}`);
-  el.setAttribute('aria-hidden', 'true');
-  el.textContent = Array.from({ length: 900 }, (_, k) => ['☍', '♇', '♃', '❖', '⛬'][(k * (i + 2) + i) % 5]).join(' ');
-  return el;
-});
-
 const codes = createCodes();
 
 const legendTexture = (() => {
@@ -231,6 +227,14 @@ const legendTexture = (() => {
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = drawnWith === 'webgl' ? THREE.SRGBColorSpace : THREE.NoColorSpace; tex.anisotropy = 4;
   return tex;
 })();
+
+const astraSt = stations.find(s => s.extra === 'astra-planes');
+const anamorph = renderer && astraSt?.el.dataset.anamorph ? createAnamorph({ sentence: astraSt.el.dataset.anamorph, dust: stations.map(s => s.words.textContent).join(' '),
+  texSpace: drawnWith === 'webgl' ? THREE.SRGBColorSpace : THREE.NoColorSpace, colorSpace: drawnWith === 'webgl' ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace }) : null;
+if (anamorph) scene.add(anamorph.group);
+
+const eyeAt = { x: 0, y: 0, goalX: 0, goalY: 0 };
+addEventListener('pointermove', e => { if (e.pointerType === 'mouse') { eyeAt.goalX = (e.clientX / Math.max(1, vw()) - 0.5) * 2; eyeAt.goalY = (e.clientY / Math.max(1, vh()) - 0.5) * 2; } }, { passive: true });
 let legendMesh = null;
 if (legendTexture) {
   legendMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.625), new THREE.MeshBasicMaterial({ map: legendTexture, transparent: true, opacity: 0.2, depthWrite: false, color: 0xcdb8f2 }));
@@ -251,7 +255,6 @@ function setDepth(on) {
       st.wordsObj = css3d(st.words); cssScene.add(st.wordsObj);
       if (st.id === 'polarity') attach(st, inscription, 'inscription');
       if (st.extra === 'breathing-glyphs') attach(st, breathing, 'breathing');
-      if (st.extra === 'astra-planes') astraLayers.forEach((el, k) => attach(st, el, `astra-${k}`));
       if (st.extra === 'fractal') attach(st, codes.svg, 'fractal');
       st.fork?.remove();
     }
@@ -292,6 +295,8 @@ function layout() {
 
     for (const st of stations) if (st.sculpture) { st.sculpture.group.scale.setScalar(H * 0.31); st.sculpture.group.position.set(0, H * 0.2, st.z); }
     measureScroll();
+    measureFlow();
+    anamorph?.layout({ W, H, plane: astraSt.z, hold: HOLD, y: H * 0.12 });
     return;
   }
   planesEl.style.height = `${Math.round((stations.length - 1) * h * 1.25 + h)}px`;
@@ -318,10 +323,10 @@ function layout() {
       if (k === 'inscription') obj.position.set(st.sculpture ? st.sculpture.group.position.x : W * 0.17, H * 0.33, st.z + 0.4);
       if (k === 'breathing') obj.position.set(W * 0.22, 0, st.z);
       if (k === 'fractal') obj.position.set(W * 0.22, 0, st.z - 0.2);
-      if (k.startsWith('astra')) { const n = Number(k.slice(6)); obj.position.set(W * (0.1 - n * 0.05), H * (n - 1) * 0.06, st.z - 0.9 - n * 1.6); obj.rotation.z = (n - 1) * 0.12; }
     }
   }
   if (legendMesh) { const r = byId.resonance; legendMesh.scale.setScalar(W * 1.5); legendMesh.position.set(0, 0, r.z - 1.2); }
+  anamorph?.layout({ W, H, plane: astraSt.z, hold: HOLD, y: 0 });
 }
 
 const narrow = matchMedia('(max-width: 759px), (max-height: 479px)');
@@ -436,6 +441,17 @@ function showPlace() {
 
 let flight = null;
 let current = 0;
+
+let flowAnchors = [];
+function measureFlow() {
+  if (depth !== false) return;
+  const max = scrollMax(), n = stations.length, gap = Math.min(vh() * 0.3, 180);
+  flowAnchors = stations.map(st => st.el.getBoundingClientRect().top + window.scrollY);
+  for (let i = n - 1; i >= 0; i--) flowAnchors[i] = Math.max(0, Math.min(flowAnchors[i], i === n - 1 ? max : flowAnchors[i + 1] - gap));
+  flowAnchors[0] = 0;
+
+  if (!stations[0].kind && stations[0].words?.classList.contains('words-none')) flowAnchors[1] = 0;
+}
 function stationScroll(i) {
   if (!depth) return stations[i].el.getBoundingClientRect().top + scrollY - vh() * 0.08;
   const max = scrollMax();
@@ -1280,6 +1296,11 @@ function frame(now) {
     camera.up.set(Math.sin(swing * 0.3), Math.cos(swing * 0.3), 0);
     camTarget.set(0, 0, camera.position.z - HOLD);
     camera.lookAt(camTarget);
+    if (anamorph) {
+      const near = 1 - smooth(0.4, 2.2, Math.abs(camera.position.z - HOLD - astraSt.z)), e = Math.min(1, dt * 3);
+      eyeAt.x += (eyeAt.goalX * near - eyeAt.x) * e; eyeAt.y += (eyeAt.goalY * near - eyeAt.y) * e;
+      if (!reduced) { camera.position.x += eyeAt.x * 0.55; camera.position.y -= eyeAt.y * 0.4; }
+    }
     next = travel < 0.5 ? k : k + 1;
     travelNow = travel; gapNow = k;
 
@@ -1288,12 +1309,16 @@ function frame(now) {
     const fov = FOV + (reduced || probe.get('fall') === '0' ? 0 : clamp(fall * 13, 0, 24));
     if (Math.abs(fov - camera.fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
   } else {
-    let best = 0, bestTop = Infinity;
-    for (const st of stations) { const r = st.el.getBoundingClientRect(); const d = Math.abs(r.top + r.height / 2 - vh() / 2); if (d < bestTop) { bestTop = d; best = st.i; } }
-    next = best;
-    camera.position.x = 0; camera.position.y = 0;
-    camera.position.z += (stations[best].z + HOLD - camera.position.z) * Math.min(1, dt * 2.2);
-    camera.up.set(0, 1, 0); camera.lookAt(0, 0, camera.position.z - HOLD);
+
+    if (flowAnchors.length !== stations.length) measureFlow();
+    const y = scrollPos(), A = flowAnchors;
+    let k = 0; while (k < stations.length - 2 && A[k + 1] <= y) k++;
+    const p = clamp((y - A[k]) / Math.max(1, A[k + 1] - A[k]), 0, 1), lin = clamp((p - 0.38) / 0.62, 0, 1), travel = lin * lin * (3 - 2 * lin);
+    const swing = reduced ? 0 : Math.sin(travel * Math.PI) * 0.45, angle = (k + travel) * Math.PI * 0.5 + travel * Math.PI;
+    const gz = lerp(stations[k].z, stations[k + 1].z, travel) + HOLD, e = reduced ? 1 : Math.min(1, dt * 12);
+    camera.position.set(camera.position.x + (Math.cos(angle) * swing - camera.position.x) * e, camera.position.y + (Math.sin(angle) * swing * 0.7 - camera.position.y) * e, camera.position.z + (gz - camera.position.z) * e);
+    camera.up.set(0, 1, 0); camera.lookAt(camera.position.x * 0.4, camera.position.y * 0.4, camera.position.z - HOLD);
+    next = travel < 0.5 ? k : k + 1;
   }
   traceStage('plane change');
 
@@ -1362,6 +1387,10 @@ function frame(now) {
   traceStage('codes, legend, glyph buttons');
 
   if (byId['spiritual-codes'].fade > 0.01 || !depth) codes.update({ dt: rhythm.paused ? 0 : dt, breath, phase: rhythm.phase, energy: rhythm.energy, calm, insight: insightV });
+  if (anamorph) {
+    const rel = camera.position.z - (astraSt.z + HOLD);
+    anamorph.update(smooth(-9, -1.5, rel) * (1 - smooth(9, 15, rel)), time);
+  }
   if (legendMesh) {
     legendMesh.material.opacity = (0.09 + insightV * 0.08) * byId.resonance.fade;
     legendMesh.material.color.setRGB(...mix3(rgb(TONES.shadow.accent), mood.a, mood.amt), drawnWith === 'webgl' ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace);
