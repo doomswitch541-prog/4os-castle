@@ -9,6 +9,8 @@ export const MAX = { PIECES: MAX_PIECES, KNOTS };
 export const seeded = i => { const n = Math.sin(i * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
+export const SHARED = { uRes: { value: new THREE.Vector2(1366, 768) }, uThick: { value: 1.9 }, uHaze: { value: new THREE.Vector4(0.3, 0.42, 0.85, 1) } };
+
 const COMMON =  `
 uniform float uTime, uBreath, uChaos, uHue, uMode, uLit, uOpacity, uShift, uMoodAmt;
 uniform vec3 uMoodA, uMoodB;
@@ -27,7 +29,7 @@ vec3 hsl(float h, float s, float l) {
   vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
   return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
 }
-vec3 deform(vec3 p, out float light, out float near) {
+vec3 deform(vec3 p, out float light, out float near, inout vec3 tn) {
   float u = aUV.x, v = aUV.y;
   light = 0.0;
   for (int i = 0; i < 3; i++) { vec3 d = p - uLights[i].xyz; light += uLights[i].w / (1.0 + dot(d, d) * 2.4); }
@@ -50,19 +52,35 @@ vec3 deform(vec3 p, out float light, out float near) {
            p.y * (1.0 + open * 0.07) + sin(v - u * 4.0) * wave,
            p.z * (1.0 + open * 0.22) + cos(u * 3.0 + v) * wave * 2.0);
   int k = int(aPiece + 0.5);
+  // the strand's direction goes through the same stretch and the same turn (the small waves leave it be)
+  tn = qrot(uPieceQ[k], tn * vec3(seam, 1.0 + open * 0.07, 1.0 + open * 0.22));
   return qrot(uPieceQ[k], p - uPieceC[k]) + uPieceC[k] + uPieceT[k];
 }`;
 
 const LINE_VERTEX =  `${COMMON}
 attribute vec2 aTone;
-uniform float uCurrent;
+attribute vec3 aTan;
+attribute float aSide;
+uniform float uCurrent, uThick;
+uniform vec2 uRes;
+uniform vec4 uHaze;
 varying vec4 vColor;
+varying vec2 vEdge;
 void main() {
   float light, near;
-  vec3 p = deform(position, light, near);
+  vec3 tn = aTan;
+  vec3 p = deform(position, light, near, tn);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   vec4 centre = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-  gl_Position = projectionMatrix * mv;
+  // A ribbon, not a 1-pixel line: each sample is two vertices pushed apart across the strand's direction on screen.
+  vec4 clip = projectionMatrix * mv;
+  vec4 ahead = projectionMatrix * (mv + vec4(mat3(modelViewMatrix) * tn * 0.02, 0.0));
+  vec2 dir = (ahead.xy / ahead.w - clip.xy / clip.w) * uRes;
+  dir /= max(length(dir), 1e-6);
+  float halfW = uThick * clamp(4.2 / max(-mv.z, 0.3), 0.75, 3.2) * 0.5 + 0.75;   // + a soft edge
+  clip.xy += vec2(-dir.y, dir.x) * aSide * halfW * 2.0 / uRes * clip.w;
+  gl_Position = clip;
+  vEdge = vec2(aSide, halfW);
   float front = clamp((mv.z - centre.z) / 1.3, -1.0, 1.0);
   float current = 0.5 + 0.5 * sin(aUV.x * 14.0 - uTime * uCurrent * (1.0 + near * 5.0) + aUV.y * 2.0);
   float hue = uHue + aTone.x + near * 0.12 + uShift;
@@ -74,13 +92,17 @@ void main() {
   vec3 tone = mix(shadowTone, crystalTone, uMode);
   // "Fields of color = emotional pull": calm and insight tint the threads themselves.
   tone = mix(tone, mix(uMoodB, uMoodA, aTone.y) * (0.6 + lum * 0.6), uMoodAmt * (1.0 - uMode * 0.5));
-  vColor = vec4(tone, a * mix(0.55, 0.6, uMode) * uOpacity);
+  // depth haze: far strands sink toward the haze colour and dim; they sharpen as you arrive
+  float hz = smoothstep(7.0, 26.0, -mv.z) * uHaze.w;
+  tone = mix(tone, uHaze.rgb, hz * 0.7);
+  vColor = vec4(tone, a * mix(0.55, 0.6, uMode) * uOpacity * (1.0 - hz * 0.45));
 }`;
 
 const LINE_FRAGMENT =  `
 uniform float uSeam;
 varying vec4 vColor;
-void main() { gl_FragColor = vec4(vColor.rgb, vColor.a * uSeam); }`;
+varying vec2 vEdge;
+void main() { gl_FragColor = vec4(vColor.rgb, vColor.a * uSeam * smoothstep(0.0, 1.0, (1.0 - abs(vEdge.x)) * vEdge.y / 1.2)); }`;
 
 const KNOT_VERTEX =  `${COMMON}
 attribute float aGlyph;
@@ -90,7 +112,8 @@ varying float vNear;
 varying vec4 vColor;
 void main() {
   float light, near;
-  vec3 p = deform(position, light, near);
+  vec3 tn = vec3(0.0);
+  vec3 p = deform(position, light, near, tn);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * mv;
   gl_PointSize = uPointScale * (0.075 + near * 0.08 + light * 0.02 + uLit * 0.02) / -mv.z;
@@ -197,17 +220,28 @@ export class Threads {
     };
 
     this.seam = { value: 1 };
+
+    const twice = (src, size) => { const out = new Float32Array(count * 2 * size); for (let k = 0; k < count; k++) for (let j = 0; j < 2; j++) for (let a = 0; a < size; a++) out[(k * 2 + j) * size + a] = src[k * size + a]; return out; };
+    const tan = new Float32Array(count * 3), side = new Float32Array(count * 2);
+    for (let s = 0; s < STRANDS; s++) for (let i = 0; i < N; i++) {
+      const k = s * N + i, a = s * N + Math.max(0, i - 1), b = s * N + Math.min(SAMPLES, i + 1);
+      const x = base[b * 3] - base[a * 3], y = base[b * 3 + 1] - base[a * 3 + 1], z = base[b * 3 + 2] - base[a * 3 + 2], l = Math.hypot(x, y, z) || 1;
+      tan.set([x / l, y / l, z / l], k * 3); side[k * 2] = -1; side[k * 2 + 1] = 1;
+    }
+    const quads = pairs => { const out = []; for (let n = 0; n < pairs.length; n += 2) { const a = pairs[n] * 2, b = pairs[n + 1] * 2; out.push(a, a + 1, b, a + 1, b + 1, b); } return out; };
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(base, 3));
-    geometry.setAttribute('aUV', new THREE.BufferAttribute(uv, 2));
-    geometry.setAttribute('aPiece', new THREE.BufferAttribute(piece, 1));
-    geometry.setAttribute('aTone', new THREE.BufferAttribute(tone, 2));
-    geometry.setIndex(index);
-    this.lines = new THREE.LineSegments(geometry, this.lineMaterial(null));
+    geometry.setAttribute('position', new THREE.BufferAttribute(twice(base, 3), 3));
+    geometry.setAttribute('aUV', new THREE.BufferAttribute(twice(uv, 2), 2));
+    geometry.setAttribute('aPiece', new THREE.BufferAttribute(twice(piece, 1), 1));
+    geometry.setAttribute('aTone', new THREE.BufferAttribute(twice(tone, 2), 2));
+    geometry.setAttribute('aTan', new THREE.BufferAttribute(twice(tan, 3), 3));
+    geometry.setAttribute('aSide', new THREE.BufferAttribute(side, 1));
+    geometry.setIndex(quads(index));
+    this.lines = new THREE.Mesh(geometry, this.lineMaterial(null));
     const seamGeometry = new THREE.BufferGeometry();
-    for (const name of ['position', 'aUV', 'aPiece', 'aTone']) seamGeometry.setAttribute(name, geometry.getAttribute(name));
-    seamGeometry.setIndex(seams);
-    this.seams = new THREE.LineSegments(seamGeometry, this.lineMaterial(this.seam));
+    for (const name of ['position', 'aUV', 'aPiece', 'aTone', 'aTan', 'aSide']) seamGeometry.setAttribute(name, geometry.getAttribute(name));
+    seamGeometry.setIndex(quads(seams));
+    this.seams = new THREE.Mesh(seamGeometry, this.lineMaterial(this.seam));
     this.seams.visible = seams.length > 0;
 
     this.knotPos = new Float32Array(KNOTS * 3); this.knotUV = new Float32Array(KNOTS * 2); this.knotPiece = new Float32Array(KNOTS);
@@ -219,9 +253,9 @@ export class Threads {
 
   lineMaterial(seam) {
     return new THREE.ShaderMaterial({
-      uniforms: { ...this.uniforms, uSeam: seam || { value: 1 } },
+      uniforms: { ...this.uniforms, ...SHARED, uSeam: seam || { value: 1 } },
       vertexShader: LINE_VERTEX, fragmentShader: LINE_FRAGMENT,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     });
   }
   makeKnots(knotGlyph) {
@@ -238,6 +272,17 @@ export class Threads {
   knotsMoved() {
     const g = this.knots.geometry.attributes;
     g.position.needsUpdate = g.aUV.needsUpdate = g.aPiece.needsUpdate = true;
+  }
+
+  setBase(points) {
+    const b = this.base, pos = this.lines.geometry.attributes.position, tan = this.lines.geometry.attributes.aTan;
+    b.set(points);
+    for (let s = 0; s < STRANDS; s++) for (let i = 0; i < N; i++) {
+      const k = s * N + i, a = s * N + Math.max(0, i - 1), c = s * N + Math.min(SAMPLES, i + 1);
+      const x = b[c * 3] - b[a * 3], y = b[c * 3 + 1] - b[a * 3 + 1], z = b[c * 3 + 2] - b[a * 3 + 2], l = Math.hypot(x, y, z) || 1;
+      for (let j = 0; j < 2; j++) { const o = (k * 2 + j) * 3; pos.array[o] = b[k * 3]; pos.array[o + 1] = b[k * 3 + 1]; pos.array[o + 2] = b[k * 3 + 2]; tan.array[o] = x / l; tan.array[o + 1] = y / l; tan.array[o + 2] = z / l; }
+    }
+    pos.needsUpdate = tan.needsUpdate = true;
   }
 
   pulse(theta = 0, power = 1, time = this.uniforms.uTime.value) {

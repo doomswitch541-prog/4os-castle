@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
-import { Threads, seeded, clamp } from './threads.js';
+import { Threads, seeded, clamp, SHARED } from './threads.js';
 import { sitePath } from '../base.js';
 import { Rhythm } from './rhythm.js';
 import { createCodes } from './geometry.js';
 import { createAnamorph, letterAtlas } from './anamorph.js';
 import { createStrandWords } from './strand-words.js';
+import { createDust } from './dust.js';
 
 const GAP = 14;
 const HOLD = 4.2;
@@ -171,6 +172,12 @@ if (!renderer) {
   stageEl.append(renderer.domElement);
 }
 const scene = new THREE.Scene();
+
+let glow = null;
+if (renderer && !reduced && probe.get('glow') !== '0') {
+  try { glow = (await import(drawnWith === 'webgl' ? './glow.js' : './glow-gpu.js')).createGlow(renderer); } catch (e) { console.warn('no bloom:', e?.message || e); }
+}
+let dust = null;
 const cssScene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(FOV, vw() / vh(), 0.05, 80);
 camera.position.set(0, 0, HOLD);
@@ -188,6 +195,12 @@ for (const st of stations) {
   if (st.kind === 'return') { t.yaw = 2.2; t.pitch = -0.2; }
   st.sculpture = t;
   scene.add(t.group);
+}
+
+if (renderer && probe.get('dust') !== '0') {
+  const all = stations.map(st => st.words?.textContent || '').join(' ');
+  dust = createDust({ text: all, atlas: letterAtlas(all, drawnWith === 'webgl' ? THREE.SRGBColorSpace : THREE.NoColorSpace) });
+  scene.add(dust.lines);
 }
 
 const threadWords = [];
@@ -296,10 +309,18 @@ const PLACE = {
   resonance: { text: 'centre' },
   where: { text: 'right', shape: -0.2 },
 };
+
+function sizeStrands() {
+  const pr = renderer ? renderer.getPixelRatio() : 1;
+  SHARED.uRes.value.set(vw() * pr, vh() * pr);
+  SHARED.uThick.value = 1.25 * pr;
+}
 function layout() {
   const w = vw(), h = vh();
   camera.aspect = w / h; camera.updateProjectionMatrix();
   if (renderer) renderer.setSize(w, h);
+  sizeStrands();
+  glow?.setSize(w, h);
   css.setSize(w, h);
   const H = 2 * HOLD * Math.tan(FOV / 2 * Math.PI / 180), W = H * w / h, px = H / h;
   view = { H, W, px };
@@ -1286,7 +1307,7 @@ let time = 0, last = performance.now(), fall = 0, lastS = 0, glide = -1;
 const pace = { sum: 0, n: 0, level: Number(probe.get('lite') || 0) };
 function setLevel(level) {
   pace.level = level; body.classList.toggle('lite', level >= 1);
-  if (renderer) { renderer.setPixelRatio(level >= 2 ? 0.75 : Math.min(devicePixelRatio || 1, level >= 1 ? 1 : 1.5)); renderer.setSize(vw(), vh()); }
+  if (renderer) { renderer.setPixelRatio(level >= 2 ? 0.75 : Math.min(devicePixelRatio || 1, level >= 1 ? 1 : 1.5)); renderer.setSize(vw(), vh()); sizeStrands(); }
 }
 function watchPace(rawDt) {
   if (rawDt > 0.5) return;
@@ -1305,6 +1326,7 @@ function traceStage(name) {
   if (tr.name && t - tr.at > 25) tr.log.push(`${stations[current].id} · ${tr.name} ${(t - tr.at).toFixed(0)} ms`);
   tr.name = name; tr.at = t;
 }
+const glowForms = [...stations.map(st => st.sculpture).filter(Boolean), ...pocketForms, ...(openingForm ? [openingForm] : [])];
 function frame(now) {
   requestAnimationFrame(frame);
   if (document.hidden) { last = now; return; }
@@ -1409,6 +1431,8 @@ function frame(now) {
   if (renderer) stepPocket(dt, now, travelNow, gapNow);
   stepOpening(dt);
   stepFalls(rhythm.paused ? 0 : dt);
+
+  { const hz = mix3(rgb(TONES.shadow.accent), mood.b, 0.35 + mood.amt * 0.4); SHARED.uHaze.value.set(hz[0] * 0.75, hz[1] * 0.75, hz[2] * 0.9, reduced ? 0.6 : 1); }
   traceStage('sculptures + text');
 
   const deviceH = vh() * (renderer ? renderer.getPixelRatio() : 1);
@@ -1443,6 +1467,7 @@ function frame(now) {
   }
 
   for (const { st, w } of threadWords) w.update({ camera, dt: rhythm.paused ? 0 : dt, fade: st.sculpture.group.visible ? smooth(0.6, 1, st.fade) * (1 - pocket.open) : 0, size: st.sculpture.group.scale.x * 0.07 });
+  if (dust) dust.update({ camera, dt: rhythm.paused ? 0 : dt, time, tintA: rgb(TONES.shadow.gold), tintB: [SHARED.uHaze.value.x, SHARED.uHaze.value.y, SHARED.uHaze.value.z] });
   traceStage('codes, legend, glyph buttons');
 
   if (byId['spiritual-codes'].fade > 0.01 || !depth) codes.update({ dt: rhythm.paused ? 0 : dt, breath, phase: rhythm.phase, energy: rhythm.energy, calm, insight: insightV });
@@ -1469,6 +1494,10 @@ function frame(now) {
 
   traceStage('3D render');
   if (renderer) renderer.render(scene, camera);
+
+  if (glow && pace.level === 0) glow.render(scene, camera, { gain: 0.8 + rhythm.energy * 0.5 + insightV * 0.5, wide: 0.55 + rhythm.energy * 0.4 + insightV * 0.6, split: 0.004 + modeValue * 0.022 + Math.min(fall, 3) * 0.004 },
+    () => { SHARED.uThick.value *= 3; for (const f of glowForms) if (f.group.visible) f.uniforms.uPointScale.value *= 0.25; },
+    () => { SHARED.uThick.value /= 3; for (const f of glowForms) if (f.group.visible) f.uniforms.uPointScale.value *= 4; });
   traceStage('text render');
   if (depth) css.render(cssScene, camera);
   traceStage('');

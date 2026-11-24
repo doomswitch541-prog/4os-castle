@@ -42,7 +42,8 @@ strong .g, h2 .g, em .g { font-size: 1em; }
 .g.twin { filter: drop-shadow(0 0 9px var(--gold)); }
 .l { display: inline-block; white-space: pre; }
 .caps { white-space: nowrap; }
-.caps-rrr { letter-spacing: 0; display: block; }
+.caps-rrr { letter-spacing: 0; }
+.caps-rrr::after { content: "\A"; white-space: pre; }
 .caps-rrr .l:nth-child(1) { font-size: 0.5em; } .caps-rrr .l:nth-child(2) { font-size: 0.62em; } .caps-rrr .l:nth-child(3) { font-size: 0.76em; }
 .caps-rrr .l:nth-child(4) { font-size: 0.9em; } .caps-rrr .l:nth-child(5) { font-size: 1.05em; } .caps-rrr .l:nth-child(6) { font-size: 1.22em; }
 .caps-breathe { display: inline-block; --b: 0; transform-origin: 0 70%; transform: scale(calc(1 + var(--b) * 0.09)); color: color-mix(in srgb, var(--violet) calc(var(--b) * 100%), var(--gold)); filter: blur(calc(var(--b) * 0.7px)); }
@@ -74,7 +75,7 @@ body[data-polarity="shadow"] .ln, body[data-polarity="shadow"] h2.ln { font-size
 body[data-polarity="shadow"] h2.ln .ph { letter-spacing: 0; }
 body[data-polarity="shadow"] .ln :is(em, strong, .caps, .g, .l) { font: inherit; color: inherit; letter-spacing: 0; text-shadow: none; filter: none; transform: none !important; -webkit-text-stroke: 0; padding: 0; }
 body[data-polarity="shadow"] .ln .g { font-family: var(--symbols); }
-body[data-polarity="shadow"] .caps-rrr { display: inline; }
+body[data-polarity="shadow"] .caps-rrr::after { content: none; }
 body[data-polarity="shadow"] .caps-and::before, body[data-polarity="shadow"] .caps-and::after { display: none; }
 body[data-polarity="shadow"] .md { opacity: 1; font-size: 1em; text-shadow: 0 0 10px rgba(227, 194, 124, 0.6); }
 body[data-polarity="shadow"] .rule .md { letter-spacing: 0; font-size: 1em; }

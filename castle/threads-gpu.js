@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { LineBasicNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
+import { MeshBasicNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
 import {
   Fn, If, Discard, reference, uniformArray, attribute, instancedDynamicBufferAttribute, texture, varying, select,
   float, int, vec2, vec3, vec4, sin, cos, atan, exp, dot, cross, mix, clamp, abs, floor, fract, max, length, smoothstep,
-  positionGeometry, modelViewMatrix, screenDPR, uv,
+  positionGeometry, modelViewMatrix, cameraProjectionMatrix, screenDPR, uv,
 } from 'three/tsl';
-import { Threads, MAX } from './threads.js';
+import { Threads, MAX, SHARED } from './threads.js';
 
 const modFloor = (x, y) => x.sub(floor(x.div(y)).mul(y));
 const qrot = (q, v) => v.add(cross(q.xyz, cross(q.xyz, v).add(v.mul(q.w))).mul(2));
@@ -35,7 +35,7 @@ export class GPUThreads extends Threads {
     return this._nodes;
   }
 
-  deform(p0, uvA, piece) {
+  deform(p0, uvA, piece, tan = vec3(0, 0, 0)) {
     const T = this.nodes(), u = uvA.x, v = uvA.y;
     let light = float(0);
     for (let i = 0; i < 3; i++) { const L = T.lights.element(i), d = p0.sub(L.xyz); light = light.add(L.w.div(dot(d, d).mul(2.4).add(1))); }
@@ -66,15 +66,27 @@ export class GPUThreads extends Threads {
     const k = int(piece.add(0.5));
     const C = T.pieceC.element(k);
     const pos = qrot(T.pieceQ.element(k), q.sub(C)).add(C).add(T.pieceT.element(k)).toVar();
-    return { pos, light, near, u, v };
+
+    const tn = qrot(T.pieceQ.element(k), vec3(tan).mul(vec3(seam, open.mul(0.07).add(1), open.mul(0.22).add(1))));
+    return { pos, light, near, u, v, tn };
   }
 
   lineMaterial(seam) {
     const T = this.nodes();
-    const material = new LineBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-    const uvA = attribute('aUV', 'vec2'), tone = attribute('aTone', 'vec2');
-    const { pos, light, near, u, v } = this.deform(positionGeometry, uvA, attribute('aPiece', 'float'));
+    const material = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    const uvA = attribute('aUV', 'vec2'), tone = attribute('aTone', 'vec2'), side = attribute('aSide', 'float');
+    const { pos, light, near, u, v, tn } = this.deform(positionGeometry, uvA, attribute('aPiece', 'float'), attribute('aTan', 'vec3'));
     material.positionNode = pos;
+
+    const res = reference('value', 'vec2', SHARED.uRes), thick = reference('value', 'float', SHARED.uThick), haze = reference('value', 'vec4', SHARED.uHaze);
+    const mvR = modelViewMatrix.mul(vec4(pos, 1)).toVar();
+    const clip = cameraProjectionMatrix.mul(mvR).toVar();
+    const ahead = cameraProjectionMatrix.mul(mvR.add(vec4(modelViewMatrix.mul(vec4(tn, 0)).xyz.mul(0.02), 0))).toVar();
+    const d0 = ahead.xy.div(ahead.w).sub(clip.xy.div(clip.w)).mul(res).toVar();
+    const dir = d0.div(max(length(d0), 1e-6)).toVar();
+    const halfW = thick.mul(clamp(float(4.2).div(max(mvR.z.negate(), 0.3)), 0.75, 3.2)).mul(0.5).add(0.75).toVar();
+    material.vertexNode = vec4(clip.xy.add(vec2(dir.y.negate(), dir.x).mul(side).mul(halfW).mul(2).div(res).mul(clip.w)), clip.z, clip.w);
+    const vEdge = varying(vec2(side, halfW), 'vThreadEdge');
 
     const color = Fn(() => {
       const mv = modelViewMatrix.mul(vec4(pos, 1)), centre = modelViewMatrix.mul(vec4(0, 0, 0, 1));
@@ -90,11 +102,15 @@ export class GPUThreads extends Threads {
       let c = mix(shadowTone, crystalTone, T.mode);
 
       c = mix(c, mix(T.moodB, T.moodA, tone.y).mul(lum.mul(0.6).add(0.6)), T.moodAmt.mul(float(1).sub(T.mode.mul(0.5))));
-      return vec4(c, a.mul(mix(0.55, 0.6, T.mode)).mul(T.opacity));
+
+      const hz = smoothstep(7, 26, mv.z.negate()).mul(haze.w);
+      c = mix(c, haze.xyz, hz.mul(0.7));
+      return vec4(c, a.mul(mix(0.55, 0.6, T.mode)).mul(T.opacity).mul(float(1).sub(hz.mul(0.45))));
     })();
     const vColor = varying(color, 'vThreadColor');
     material.colorNode = vColor.xyz;
-    material.opacityNode = seam ? vColor.w.mul(reference('value', 'float', seam)) : vColor.w;
+    const edge = smoothstep(0, 1, float(1).sub(abs(vEdge.x)).mul(vEdge.y).div(1.2));
+    material.opacityNode = (seam ? vColor.w.mul(reference('value', 'float', seam)) : vColor.w).mul(edge);
     return material;
   }
 
