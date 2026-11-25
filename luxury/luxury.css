@@ -1,0 +1,45 @@
+:root { --serif: "Iowan Old Style", "Palatino Linotype", Georgia, "DejaVu Serif", serif; color-scheme: dark; }
+html, body.luxury { margin: 0; height: 100%; background: #03192B; overflow: hidden; }
+#luxury-stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+.luxury-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background:
+  linear-gradient(#03192B 0, #03192Bf2 64px, #03192B00 118px),
+  radial-gradient(ellipse 30% 26% at 57% 20%, #f6f7f1 0, #f6f7f1cc 34%, #f6f7f100 100%),
+  radial-gradient(ellipse 46% 30% at 66% 30%, #eef0ebcc 0, #eef0eb00 100%),
+  radial-gradient(ellipse 34% 20% at 40% 26%, #dde2e2aa 0, #dde2e200 100%),
+  linear-gradient(#8fa3b5 0, #a2aaad 38%, #b9c2c6 62%, #cbd2cc 100%); }
+.luxury-sky[hidden] { display: none; }
+.luxury-ui { position: fixed; inset: 128px 7vw 72px 5vw; z-index: 4; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+.luxury-ui[hidden] { display: none; }
+.luxury-heading { max-width: 680px; }
+.luxury-heading p { margin: 0 0 12px; color: #1c2b3a; font: italic 17px/1.5 var(--serif); }
+.luxury-heading h1 { margin: 0; font: 400 clamp(36px, 5.5vw, 84px)/0.98 var(--serif); letter-spacing: -0.045em; color: #0d141a; text-shadow: 0 1px 18px #f6f7f166; }
+.luxury-heading h1 em { display: block; font-weight: 400; color: #234a78; }
+.luxury-bottom { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+.luxury-actions { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 10px; }
+.luxury-ui button { border: 1px solid #2C5C79; border-radius: 3px; background: #03192Beb; color: #e6eef4; font: 15px/1.3 var(--serif); padding: 13px 19px; cursor: pointer; min-height: 46px; transition: background-color 180ms, border-color 180ms; }
+.luxury-ui button:hover { background: #092F4B; border-color: #8fc0de; }
+.luxury-ui button:focus-visible { outline: 2px solid #F1CB96; outline-offset: 5px; }
+.luxury-ui button[data-luxury-build] { background: #F1CB96; color: #03192B; border-color: #F3E0BA; }
+.luxury-ui button[data-luxury-build]:hover { background: #F3E0BA; }
+.luxury-ui button:disabled { opacity: 0.35; cursor: default; }
+.luxury-status { min-height: 1.5em; margin: 13px 0 0; color: #0d141a; font: italic 14px/1.5 var(--serif); max-width: 420px; }
+.luxury-visits { pointer-events: auto; display: flex; align-items: center; gap: 15px; padding-bottom: 31px; }
+.luxury-visits button { width: 46px; padding: 8px; border-radius: 50%; }
+.luxury-visits output { font: 12px/1.4 ui-monospace, monospace; color: #e6eef4; background: #03192Bcc; border-radius: 3px; padding: 4px 6px; min-width: 65px; text-align: center; }
+@media (max-width:759px) {
+  .luxury-ui { inset: 138px 48px 65px 22px; }
+  .luxury-heading h1 { font-size: clamp(34px,9vw,56px); }
+  .luxury-heading p { font-size: 15px; max-width: 280px; }
+  .luxury-bottom { flex-direction: column; align-items: start; gap: 10px; }
+  .luxury-visits { order: -1; padding: 0; }
+  .luxury-ui button { font-size: 14px; padding: 11px 12px; }
+  .luxury-status { font-size: 12px; }
+}
+@media (max-height:479px) {
+  .luxury-ui { inset: 88px 60px 30px 24px; }
+  .luxury-heading h1 { font-size: 32px; }
+  .luxury-heading p { margin-bottom: 6px; font-size: 9px; }
+  .luxury-bottom { flex-direction: row; }
+  .luxury-status { display: none; }
+  .luxury-visits { padding: 0; }
+}

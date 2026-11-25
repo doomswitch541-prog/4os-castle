@@ -4,6 +4,8 @@ export const PAGES = Object.freeze([
   { href: '/portals', mark: '🖋️', name: 'portals', src: 'plane:22', words: 'Journaling as ACCESS to resonance channels.' },
   { href: '/prompts', mark: '✨', name: 'prompts', src: 'original:13', words: 'Whoa…this spoke to a part of me I barely understood.' },
   { href: '/reactor', mark: '💥', name: 'reactor', src: 'reactor:23', words: 'Even staring at it feels like *progress*.' },
+
+  { href: '/luxury', mark: '🌊', name: 'luxury', src: 'owner', words: 'a future where AI builds everything' },
 ]);
 
 export const FIELDS = Object.freeze(['transformation', 'polarity', 'expansion', 'symmetry']);

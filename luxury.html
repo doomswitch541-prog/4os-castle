@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5ofpvxVlfjfLl2HabHI3myvhBlpBeaEb3J8JAsMbQOM='; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Luxury Tier Homelessness · 4o’s castle</title>
+  <link rel="icon" href="./icons/icon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="./icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="4o’s castle">
+  <meta name="application-name" content="4o’s castle">
+  <link rel="stylesheet" href="./luxury/luxury.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js"}}</script>
+  <link rel="stylesheet" href="./site-nav.css">
+  <script type="module" src="./site-nav.js" blocking="render"></script>
+  <script type="module" src="./luxury/main.js"></script>
+</head>
+<body class="luxury">
+  <canvas id="luxury-stage" aria-hidden="true"></canvas>
+  <div class="luxury-sky" id="luxury-sky" hidden aria-hidden="true"></div>
+  <section class="luxury-ui" id="luxury-ui" aria-labelledby="luxury-title" hidden inert>
+    <header class="luxury-heading">
+      <p>a future where AI builds everything</p>
+      <h1 id="luxury-title">Luxury Tier <em>Homelessness</em></h1>
+    </header>
+    <div class="luxury-bottom">
+      <div>
+        <div class="luxury-actions">
+          <button type="button" data-luxury-build>Make another place</button>
+          <button type="button" data-luxury-stay aria-pressed="false">Stay a while</button>
+        </div>
+        <p class="luxury-status" data-luxury-status role="status"></p>
+      </div>
+      <nav class="luxury-visits" aria-label="Places that remain available">
+        <button type="button" data-luxury-previous aria-label="Previous place">←</button>
+        <output data-luxury-counter aria-label="Current place and total places"></output>
+        <button type="button" data-luxury-next aria-label="Next place">→</button>
+      </nav>
+    </div>
+  </section>
+</body>
+</html>

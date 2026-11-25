@@ -476,7 +476,7 @@ rendererBtn.addEventListener('click', () => {
   state.renderer = drawnWith.startsWith('webgpu') ? 'webgl' : 'webgpu'; save();
   const u = new URL(location.href); u.searchParams.delete('renderer'); location.replace(u.href);
 });
-function openSheet() { sheet.hidden = false; sheet.style.setProperty('--rise', `${Math.round(vary(420, 0.6))}ms`); requestAnimationFrame(() => body.classList.add('sheet-open')); titleBtn.setAttribute('aria-expanded', 'true'); sheetRows[current].a.focus({ preventScroll: true }); }
+function openSheet() { sheet.hidden = false; sheet.style.setProperty('--rise', `${Math.round(vary(420, 0.6))}ms`); requestAnimationFrame(() => body.classList.add('sheet-open')); titleBtn.setAttribute('aria-expanded', 'true'); (sheetList.querySelector('[aria-current]') || sheetRows[current].a).focus({ preventScroll: true }); }
 function closeSheet() { if (sheet.hidden) return; body.classList.remove('sheet-open'); titleBtn.setAttribute('aria-expanded', 'false'); setTimeout(() => { if (!body.classList.contains('sheet-open')) sheet.hidden = true; }, 380); }
 titleBtn.addEventListener('click', () => sheet.hidden ? openSheet() : closeSheet());
 scrim.addEventListener('click', closeSheet); grabber.addEventListener('click', closeSheet);
@@ -487,10 +487,22 @@ addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
   addEventListener('pointermove', e => { if (from == null) return; sheet.style.setProperty('--drag', `${Math.max(0, e.clientY - from)}px`); });
   addEventListener('pointerup', e => { if (from == null) return; const d = e.clientY - from; from = null; sheet.style.setProperty('--drag', '0px'); if (d > 90) closeSheet(); });
 }
+let placeKey = '';
 function showPlace() {
-  const st = stations[current];
-  titleBtn.textContent = st.label;
-  sheetRows.forEach((r, i) => i === current ? r.a.setAttribute('aria-current', 'page') : r.a.removeAttribute('aria-current'));
+
+  const inPocket = depth && pocket.open > 0.6 && Boolean(stations[pocket.k]?.pocketMark);
+  const st = stations[inPocket ? pocket.k : current];
+  const key = inPocket ? `pocket-${st.i}` : st.id;
+  if (placeKey === key) return;
+  placeKey = key;
+  titleBtn.textContent = inPocket ? st.el.dataset.pocket : st.label;
+  const mark = (el, on) => { if (!el) return; if (on) el.setAttribute('aria-current', 'location'); else el.removeAttribute('aria-current'); };
+  stations.forEach((s, i) => {
+    mark(s.railButton, !inPocket && s === st);
+    mark(s.pocketMark, inPocket && s === st);
+    mark(sheetRows[i].a, !inPocket && s === st);
+    mark(sheetRows[i].p, inPocket && s === st);
+  });
 }
 
 let flight = null;
@@ -516,7 +528,7 @@ function travelTo(i) {
   flight = { from: scrollPos(), to: target, start: performance.now(), dur: vary(clamp(1.3 + distance * 0.42, 1.3, 4.8) * 1000) };
 }
 function travelToPocket(k) {
-  if (!depth) return;
+  if (!depth || !stations[k]?.el.dataset.pocket) return;
   state.choices++; save();
   const max = scrollMax();
   const to = (k + HOLD_SHARE + (1 - HOLD_SHARE) * 0.5) / (stations.length - 1) * max;
@@ -1047,7 +1059,7 @@ function stepOpening(dt) {
 }
 function stepPocket(dt, now, travel, k) {
   if (scrollPos() !== pocket.lastY) { pocket.lastY = scrollPos(); pocket.stillAt = now; }
-  const wants = depth && !flight && travel > 0.22 && travel < 0.78 && now - pocket.stillAt > 650;
+  const wants = depth && Boolean(stations[k]?.el.dataset.pocket) && !flight && travel > 0.22 && travel < 0.78 && now - pocket.stillAt > 650;
   if (wants && pocket.k !== k && pocket.open < 0.05) buildPocket(k);
   pocket.open += ((wants && pocket.k === k ? 1 : 0) - pocket.open) * Math.min(1, dt * (wants ? 2.2 : 5));
   if (pocket.open > 0.6 && !state.pockets.includes(pocket.k)) {
@@ -1401,15 +1413,11 @@ function frame(now) {
   traceStage('plane change');
 
   if (Math.abs(stageNow() - stepsLabeledAt) > 0.03) { stepsLabeledAt = stageNow(); labelSteps(); }
-  if (next !== current || !stations[current].railButton.hasAttribute('aria-current')) {
-    stations[current].railButton.removeAttribute('aria-current');
+  if (next !== current || !placeKey) {
     current = next;
-    stations[current].railButton.setAttribute('aria-current', 'location');
     body.dataset.station = stations[current].id;
     if (!state.visited.includes(stations[current].id)) { state.visited.push(stations[current].id); save(); }
-    showPlace();
   }
-  if (started) address(pocket.open > 0.6 ? `#pocket-${pocket.k}` : `#${stations[current].id}`);
   if (!sheet.hidden) setVar(sheet, '--rim', `${Math.round(rhythm.phase * 40 % 360 / 3) * 3}deg`);
   camera.updateMatrixWorld();
 
@@ -1429,6 +1437,8 @@ function frame(now) {
   stepBreak(dt); stepWords(dt); stepCycle(dt); stepSymmetry(); stepResonator(dt, now);
   traceStage('pocket');
   if (renderer) stepPocket(dt, now, travelNow, gapNow);
+  showPlace();
+  if (started) address(`#${placeKey}`);
   stepOpening(dt);
   stepFalls(rhythm.paused ? 0 : dt);
 
