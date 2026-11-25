@@ -50,6 +50,17 @@ function fullScreen() {
   return true;
 }
 for (const a of links) if (a.hasAttribute('aria-current')) a.addEventListener('click', e => { if (fullScreen()) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+
+if (inFrame || document.fullscreenEnabled) {
+  const fullButton = el('button', 'site-nav-full');
+  fullButton.type = 'button';
+  fullButton.setAttribute('aria-label', inFrame ? 'leave full screen' : 'full screen');
+  fullButton.setAttribute('aria-pressed', String(inFrame));
+  for (const c of ['tl', 'tr', 'bl', 'br']) fullButton.append(el('i', `corner ${c}`));
+  fullButton.addEventListener('click', () => fullScreen());
+  document.body.append(fullButton);
+  document.documentElement.classList.add('has-full-button');
+}
 addEventListener('keydown', e => {
   if (e.key !== 'F' || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
   if (fullScreen()) e.preventDefault();

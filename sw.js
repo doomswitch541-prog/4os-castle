@@ -2,7 +2,7 @@
 // page and file it shipped. Online, everything comes fresh from the network, so a push shows up at once; with no signal,
 // the copy saved here answers. A new build brings a new version and the old copies are dropped. Only GETs for the
 // castle's own pages and files go through here; anything else (the Reactor's local model) passes untouched.
-const VERSION = 'b82017d9b218';
+const VERSION = 'c3bb864bbf47';
 const PAGES = ["./","./castle","./portals","./prompts","./reactor","./luxury","./full"];
 const FILES = ["./app.js","./base.js","./castle/anamorph.js","./castle/castle.css","./castle/dust.js","./castle/geometry.css","./castle/geometry.js","./castle/glow-gpu.js","./castle/glow.js","./castle/main.js","./castle/rhythm.js","./castle/strand-words.js","./castle/threads-gpu.js","./castle/threads.js","./fields.js","./folio.js","./full.css","./full.js","./icons/apple-touch-icon.png","./icons/icon-192.png","./icons/icon-32.png","./icons/icon-512.png","./icons/icon-maskable-512.png","./luxury/luxury.css","./luxury/luxury.js","./luxury/main.js","./manifest.webmanifest","./portals/access.js","./portals/draw.js","./portals/form.js","./portals/garden.js","./portals/trace.js","./portals.css","./portals.js","./prompts/prompts.css","./prompts/prompts.js","./reactor/reactor.css","./reactor/reactor.js","./sculpture.js","./site-map.js","./site-nav.css","./site-nav.js","./site-pages.js","./style.css","./vendor/three/build/three.module.js","./vendor/three/build/three.core.js","./vendor/three/addons/renderers/CSS3DRenderer.js","./site-map.json"];
 const CACHE = `castle-${VERSION}`;

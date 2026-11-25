@@ -205,20 +205,21 @@ export function createLuxury({ scene, plane, panel, reduced = false, shadowSize 
   b.add('wall', slab(22.9, 20.9, 0.15, 4), 0, -0.25, DECK.z);
 
   b.add('stone', slab(10.4, 4.3, 0.12, 0.3), POOL.x, -0.08, POOL.z);
+  b.box('metal', POOL.w + 0.08, 0.05, POOL.d + 0.08, POOL.x, 0.055, POOL.z);
   {
     const { x: px, z: pz, w: W, d: D, top, water } = POOL;
-    b.box('poolFloor', W - 0.06, 0.03, D - 0.06, px, 0.06, pz);
-    b.add('glint', new THREE.PlaneGeometry(W - 0.1, D - 0.1), px, 0.09, pz, -Math.PI / 2);
-    b.box('waterBody', W - 0.06, water - 0.2, D - 0.06, px, 0.04 + (water - 0.2) / 2, pz);
+    b.box('poolFloor', W - 0.06, 0.06, D - 0.06, px, 0.10, pz);
+    b.add('glint', new THREE.PlaneGeometry(W - 0.1, D - 0.1), px, 0.19, pz, -Math.PI / 2);
+    b.box('waterBody', W - 0.1, water - 0.5, D - 0.1, px, 0.28 + (water - 0.5) / 2, pz);
     b.add('water', new THREE.PlaneGeometry(W - 0.06, D - 0.06), px, 0.04 + water, pz, -Math.PI / 2);
-    b.add('glint', new THREE.PlaneGeometry(W - 0.2, water - 0.2), px, 0.04 + water / 2, pz + D / 2 - 0.05);
+    b.add('glint', new THREE.PlaneGeometry(W - 0.2, water - 0.5), px, 0.3 + (water - 0.5) / 2, pz + D / 2 - 0.09);
     for (const z of [pz - D / 2, pz + D / 2]) {
-      b.box('poolGlass', W, top, 0.03, px, 0.04 + top / 2, z);
+      b.box('poolGlass', W, top - 0.02, 0.03, px, 0.06 + (top - 0.02) / 2, z);
       b.box('poolLine', W, 0.02, 0.04, px, 0.04 + top, z);
       b.box('poolLine', W - 0.04, 0.03, 0.02, px, 0.04 + water + 0.02, z);
     }
     for (const x of [px - W / 2, px + W / 2]) {
-      b.box('poolGlass', 0.03, top, D, x, 0.04 + top / 2, pz);
+      b.box('poolGlass', 0.03, top - 0.02, D - 0.08, x, 0.06 + (top - 0.02) / 2, pz);
       b.box('poolLine', 0.04, 0.02, D, x, 0.04 + top, pz);
       for (const z of [pz - D / 2, pz + D / 2]) b.box('poolLine', 0.03, top, 0.03, x, 0.04 + top / 2, z);
     }
