@@ -18,6 +18,8 @@ function texture(draw, width = 256, height = 256) {
   const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
+const SOLID = new Set(['stone', 'wall', 'metal', 'wood', 'fabric', 'leaf', 'leafLight', 'umbrella']);
+
 function batch(parent, materials) {
   const buckets = new Map();
   function add(kind, geometry, x, y, z, rx = 0, ry = 0, rz = 0) {
@@ -40,6 +42,7 @@ function batch(parent, materials) {
       for (let i = 0; i < flat.length; i++) if (flat[i] !== pieces[i]) flat[i].dispose();
       for (const p of pieces) p.dispose();
       const m = new THREE.Mesh(g, materials[kind]); parent.add(m);
+      if (SOLID.has(kind)) { m.castShadow = true; m.receiveShadow = true; }
     }
   }
   return { add, box, finish };
@@ -100,9 +103,11 @@ function pavilion(id, mats) {
   return { root, floors, id, born: 1 };
 }
 
-const POOL = { x: -2.2, z: 6.0, w: 10, d: 3.6, top: 1.62, water: 1.5 };
+const POOL = { x: -2.2, z: 5.0, w: 10, d: 3.6, top: 1.62, water: 1.5 };
 
-export function createLuxury({ scene, plane, panel, reduced = false }) {
+export const DECK = { x: 0, z: 2, hx: 11.2, hz: 10.2 };
+
+export function createLuxury({ scene, plane, panel, reduced = false, shadowSize = 2048 }) {
   const group = new THREE.Group(); scene.add(group); group.visible = false;
   const world = new THREE.Group(); group.add(world);
 
@@ -182,12 +187,14 @@ export function createLuxury({ scene, plane, panel, reduced = false }) {
   };
 
   group.add(new THREE.HemisphereLight(0xdfe6ea, 0x59636c, 1.9));
-  const sun = new THREE.DirectionalLight(0xfff6e6, 2.1); sun.position.set(3, 14, -10); group.add(sun, sun.target);
+  const sun = new THREE.DirectionalLight(0xfff6e6, 2.4); sun.position.set(5, 16, -11); group.add(sun, sun.target);
+  sun.castShadow = true; sun.shadow.mapSize.set(shadowSize, shadowSize); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 3;
+  Object.assign(sun.shadow.camera, { left: -17, right: 17, top: 17, bottom: -17, near: 1, far: 60 }); sun.target.position.set(0, 0, 2);
   const blue = new THREE.DirectionalLight(0xa5bfd0, 0.9); blue.position.set(-6, 5, 9); group.add(blue, blue.target);
   const b = batch(world, mats);
-  b.add('stone', slab(23, 17, 0.42, 4), 0, -0.65, 0);
-  b.add('edge', slab(23.05, 17.05, 0.035, 4), 0, -0.29, 0);
-  b.add('wall', slab(22.9, 16.9, 0.15, 4), 0, -0.25, 0);
+  b.add('stone', slab(23, 21, 0.42, 4), 0, -0.65, DECK.z);
+  b.add('edge', slab(23.05, 21.05, 0.035, 4), 0, -0.29, DECK.z);
+  b.add('wall', slab(22.9, 20.9, 0.15, 4), 0, -0.25, DECK.z);
 
   b.add('stone', slab(10.4, 4.3, 0.12, 0.3), POOL.x, -0.08, POOL.z);
   {
@@ -291,8 +298,6 @@ export function createLuxury({ scene, plane, panel, reduced = false }) {
   previous.addEventListener('click', () => visit(-1)); next.addEventListener('click', () => visit(1));
   stay.addEventListener('click', () => { state.staying = !state.staying; persist(); sync(); });
   for (const type of ['pointerdown','pointerup','click']) panel.addEventListener(type, e => { if (e.target.closest('button')) e.stopPropagation(); });
-  addEventListener('pointermove', e => { if (active && e.pointerType !== 'touch') aim = clamp(e.clientX / view.w - 0.5, -0.5, 0.5); }, { passive: true });
-  addEventListener('blur', () => { aim = 0; });
   addEventListener('storage', e => {
     if (e.key !== KEY) return;
     const saved = read(); state.count = Math.max(state.count, saved.count);
@@ -307,17 +312,8 @@ export function createLuxury({ scene, plane, panel, reduced = false }) {
     active = visible && current && distance > 2;
     if (active !== lastVisibility) { panel.hidden = !active; panel.inert = !active; document.getElementById('luxury-sky').hidden = !active; lastVisibility = active; }
     if (!visible) return;
-    const snap = reduced || paused, e = snap ? 1 : 1 - Math.exp(-dt * 3);
-    zoom += ((state.staying ? 1 : 0) - zoom) * e;
-    turn += ((reduced ? 0 : aim * 0.18) - turn) * e;
-    const H = 2 * 4.2 * Math.tan(35 * Math.PI / 360), W = H * width / height;
-
-    const fit = Math.min(W / 13.5, H / 8.6), scale = fit * (1 + zoom * 0.75);
-    group.scale.setScalar(scale); group.rotation.set(0.012 + zoom * 0.1, -0.2 + turn + zoom * 0.04, 0);
-    const out = anchor.set(POOL.x, 0.04 + POOL.water, POOL.z + POOL.d / 2).applyEuler(group.rotation).multiplyScalar(scale);
-    const ox = -out.x - W * 0.02, oy = -H * 0.045 - out.y, oz = -out.z;
-    const inn = anchor.set(2.9, 1.6, -1.9).applyEuler(group.rotation).multiplyScalar(scale);
-    group.position.set(ox + (W * 0.10 - inn.x - ox) * zoom, oy + (-H * 0.13 - inn.y - oy) * zoom, plane + oz + (-inn.z - oz) * zoom);
+    const snap = reduced || paused;
+    group.position.set(0, 0, plane);
     if (!snap) { waterMap.offset.x += dt * 0.006; glintMap.offset.x -= dt * 0.011; glintMap.offset.y += dt * 0.006; }
     for (const m of models) {
       m.born = snap ? 1 : Math.min(1, m.born + dt * 0.65);
@@ -329,5 +325,7 @@ export function createLuxury({ scene, plane, panel, reduced = false }) {
       }
     }
   }
-  return { group, update, active: () => active, inspect: () => ({ ...state, rendered: models.map(m => m.id), storageOK }) };
+
+  const spots = () => models.map(m => ({ id: m.id, x: m.root.position.x, z: m.root.position.z, scale: m.root.scale.x }));
+  return { group, update, pool: POOL, places: spots, growing: () => models.some(m => m.born < 1), active: () => active, inspect: () => ({ ...state, rendered: models.map(m => m.id), storageOK }) };
 }

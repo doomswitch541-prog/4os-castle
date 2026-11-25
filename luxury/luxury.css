@@ -1,6 +1,7 @@
 :root { --serif: "Iowan Old Style", "Palatino Linotype", Georgia, "DejaVu Serif", serif; color-scheme: dark; }
 html, body.luxury { margin: 0; height: 100%; background: #03192B; overflow: hidden; }
-#luxury-stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+#luxury-stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; touch-action: none; cursor: grab; }
+#luxury-stage.looking { cursor: grabbing; }
 .luxury-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background:
   linear-gradient(#03192B 0, #03192Bf2 64px, #03192B00 118px),
   radial-gradient(ellipse 30% 26% at 57% 20%, #f6f7f1 0, #f6f7f1cc 34%, #f6f7f100 100%),
