@@ -80,6 +80,10 @@ function pavilion(id, mats) {
       b.box('wall', 0.16, 1.4, d - 0.8, -w / 2 + 0.45, 0.88, 0);
       for (const x of [-w / 2 + 0.5, 0, w / 2 - 0.5]) b.box('metal', 0.055, 1.45, 0.055, x, 0.9, d / 2 - 0.45);
       b.box('glass', w - 1, 1.32, 0.018, 0, 0.9, d / 2 - 0.47);
+      for (let x = -w / 2 + 0.95; x < w / 2 - 0.5; x += 0.9) b.box('metal', 0.03, 1.36, 0.045, x, 0.9, d / 2 - 0.46);
+      b.box('metal', w - 0.9, 0.05, 0.06, 0, 0.24, d / 2 - 0.46); b.box('metal', w - 0.9, 0.05, 0.06, 0, 1.56, d / 2 - 0.46);
+      b.box('wall', w - 0.2, 0.1, d - 0.5, 0, 0.21, -0.05);
+      b.box('wall', 0.16, 1.4, d - 0.8, w / 2 - 0.45, 0.88, 0);
       b.box('light', w - 1.1, 0.025, 0.035, 0, 1.55, -d / 2 + 0.42);
 
       b.box('fabric', 1.7, 0.28, 0.66, -0.65, 0.42, 0);
@@ -96,6 +100,9 @@ function pavilion(id, mats) {
       b.box('fabric', 0.55, 0.12, 0.55, -0.55, 0.4, 0.3);
       b.box('fabric', 0.12, 0.5, 0.55, -0.82, 0.62, 0.3);
     }
+    b.add('inside', slab(w + 0.45, d + 0.5, 0.05, 0.95), 0, -0.035, 0);
+    b.add('metal', slab(w + 0.74, d + 0.78, 0.07, 1.08), 0, -0.09, 0);
+    for (let x = -w / 2 + 0.35; x <= w / 2 - 0.3; x += 1.15) b.box('metal', 0.03, 0.64, 0.03, x, 0.5, d / 2 + 0.16);
     b.box('glass', w - 0.7, 0.6, 0.02, 0, 0.52, d / 2 + 0.16);
     b.box('metal', w - 0.7, 0.025, 0.025, 0, 0.83, d / 2 + 0.16);
     b.finish();
@@ -133,7 +140,7 @@ export function createLuxury({ scene, plane, panel, reduced = false, shadowSize 
   const oceanMap = texture((ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#a5bfd0'); g.addColorStop(0.18, '#8aa4ba'); g.addColorStop(0.5, '#6f89a4'); g.addColorStop(1, '#435f80');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); const rnd = random(5);
-    for (let i = 0; i < 260; i++) { const y = Math.pow(rnd(), 0.6) * h; ctx.fillStyle = `rgba(226,236,242,${0.05 + 0.2 * y / h})`; ctx.fillRect(rnd() * w, y, 4 + rnd() * 30 * (0.3 + y / h), 0.7 + y / h); }
+    for (let i = 0; i < 150; i++) { const y = Math.pow(rnd(), 0.6) * h; ctx.fillStyle = `rgba(226,236,242,${0.03 + 0.1 * y / h})`; ctx.fillRect(rnd() * w, y, 10 + rnd() * 40 * (0.3 + y / h), 2 + 2 * y / h); }
   }, 512, 512);
   const shadow = texture((ctx,w,h) => {
     const g=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);g.addColorStop(0,'rgba(13,20,26,.5)');g.addColorStop(.5,'rgba(13,20,26,.24)');g.addColorStop(1,'rgba(13,20,26,0)');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
@@ -150,6 +157,7 @@ export function createLuxury({ scene, plane, panel, reduced = false, shadowSize 
     for (let i = 0; i < 46; i++) { const x = rnd() * w, y = rnd() * h; ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x + 20 + rnd() * 30, y - 14 + rnd() * 28, x + 40 + rnd() * 30, y - 14 + rnd() * 28, x + 70 + rnd() * 40, y + rnd() * 10 - 5); ctx.stroke(); }
   }, 512, 256);
   glintMap.wrapS = glintMap.wrapT = waterMap.wrapS = waterMap.wrapT = THREE.RepeatWrapping;
+  for (const t of [oceanMap, waterMap, glintMap, glassTower, apartment, concreteBlock]) t.anisotropy = 8;
   const hazeMap = texture((ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(203,210,204,0)'); g.addColorStop(.6, 'rgba(203,210,204,.34)'); g.addColorStop(1, 'rgba(199,199,184,.6)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
@@ -157,7 +165,7 @@ export function createLuxury({ scene, plane, panel, reduced = false, shadowSize 
   const mats = {
     stone: new THREE.MeshStandardMaterial({ color: '#c9c6bc', roughness: 0.7, metalness: 0.05 }),
     wall: new THREE.MeshStandardMaterial({ color: '#8d9299', roughness: 0.8 }),
-    inside: new THREE.MeshBasicMaterial({ color: '#1e2933' }),
+    inside: new THREE.MeshBasicMaterial({ color: '#3d4a57' }),
     edge: new THREE.MeshBasicMaterial({ color: '#e9ebe6' }),
     light: new THREE.MeshBasicMaterial({ color: '#d8d6ce' }),
     glass: new THREE.MeshStandardMaterial({ color: '#234a78', transparent: true, opacity: 0.34, roughness: 0.1, metalness: 0.7, depthWrite: false }),
@@ -166,7 +174,7 @@ export function createLuxury({ scene, plane, panel, reduced = false, shadowSize 
     fabric: new THREE.MeshStandardMaterial({ color: '#e6e6df', roughness: 0.9 }),
     leaf: new THREE.MeshStandardMaterial({ color: '#1e2a22', roughness: 0.9 }),
     leafLight: new THREE.MeshStandardMaterial({ color: '#2f4034', roughness: 0.9 }),
-    water: new THREE.MeshBasicMaterial({ map: waterMap, color: '#f0f6f8', transparent: true, opacity: 0.8, depthWrite: false }),
+    water: new THREE.MeshBasicMaterial({ map: waterMap, color: '#f0f6f8', transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     waterBody: new THREE.MeshBasicMaterial({ map: depthMap, transparent: true, opacity: 0.84, depthWrite: false }),
     poolFloor: new THREE.MeshBasicMaterial({ color: '#5f9fc4' }),
     poolGlass: new THREE.MeshBasicMaterial({ color: '#eaf4f8', transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }),
@@ -201,13 +209,13 @@ export function createLuxury({ scene, plane, panel, reduced = false, shadowSize 
     const { x: px, z: pz, w: W, d: D, top, water } = POOL;
     b.box('poolFloor', W - 0.06, 0.03, D - 0.06, px, 0.06, pz);
     b.add('glint', new THREE.PlaneGeometry(W - 0.1, D - 0.1), px, 0.09, pz, -Math.PI / 2);
-    b.box('waterBody', W - 0.06, water - 0.06, D - 0.06, px, 0.04 + (water - 0.06) / 2, pz);
+    b.box('waterBody', W - 0.06, water - 0.2, D - 0.06, px, 0.04 + (water - 0.2) / 2, pz);
     b.add('water', new THREE.PlaneGeometry(W - 0.06, D - 0.06), px, 0.04 + water, pz, -Math.PI / 2);
     b.add('glint', new THREE.PlaneGeometry(W - 0.2, water - 0.2), px, 0.04 + water / 2, pz + D / 2 - 0.05);
     for (const z of [pz - D / 2, pz + D / 2]) {
       b.box('poolGlass', W, top, 0.03, px, 0.04 + top / 2, z);
       b.box('poolLine', W, 0.02, 0.04, px, 0.04 + top, z);
-      b.box('poolLine', W - 0.04, 0.012, 0.02, px, 0.04 + water, z);
+      b.box('poolLine', W - 0.04, 0.03, 0.02, px, 0.04 + water + 0.02, z);
     }
     for (const x of [px - W / 2, px + W / 2]) {
       b.box('poolGlass', 0.03, top, D, x, 0.04 + top / 2, pz);
@@ -240,7 +248,18 @@ export function createLuxury({ scene, plane, panel, reduced = false, shadowSize 
   for (const [x, z, w, d, h, kind] of [
     [13.6, -36, 10.5, 10.5, 44, 'tower'], [27, -31, 8, 8, 27, 'tower'],
     [-5.5, -40, 5, 5, 20, 'apartment'], [-30, -30, 11, 9, 8.5, 'concrete'], [-17, -44, 7, 7, 9.5, 'tower'],
-  ]) horizon.box(kind, w, h, d, x, h / 2 - 1.5, z);
+  ]) {
+    horizon.box(kind, w, h, d, x, h / 2 - 1.5, z);
+    if (kind === 'tower' && h > 24) {
+      horizon.box('tower', w * 0.74, h * 0.16, d * 0.74, x, h - 1.5 + h * 0.08, z);
+      horizon.box('steel', w * 0.5, 0.5, d * 0.5, x, h - 1.5 + h * 0.16 + 0.25, z);
+      horizon.box('steel', 0.14, h * 0.3, 0.14, x + w * 0.12, h - 1.5 + h * 0.16 + h * 0.15, z);
+      for (const sx of [-1, 1]) horizon.box('steel', 0.16, h, 0.16, x + sx * (w / 2 + 0.05), h / 2 - 1.5, z + d / 2 + 0.05);
+      horizon.box('steel', w + 0.3, 0.35, d + 0.3, x, 3.2, z);
+    }
+    if (kind === 'apartment') { for (let y = 2; y < h - 1; y += 2.9) horizon.box('light', w + 0.5, 0.12, d + 0.5, x, y - 1.5, z); horizon.box('light', w + 0.6, 0.5, d + 0.6, x, h - 1.3, z); }
+    if (kind === 'concrete') { horizon.box('light', w + 0.4, 0.35, d + 0.4, x, h - 1.35, z); horizon.box('steel', w * 0.3, 1.4, d * 0.3, x - w * 0.2, h - 0.8, z); }
+  }
 
   {
     const x = 3.4, z = -30, w = 5.4, d = 5.4, h = 23, y0 = -1.5;

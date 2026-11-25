@@ -20,7 +20,7 @@ if (!renderer) {
   renderer.shadowMap.enabled = probe.get('shadows') !== '0'; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.shadowMap.autoUpdate = false;
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.05, 600);
+  const camera = new THREE.PerspectiveCamera(46, 1, 0.25, 320);
   camera.rotation.order = 'YXZ';
   const luxury = createLuxury({ scene, plane: 0, panel, reduced, shadowSize: coarse ? 1024 : 2048 });
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), EYE = 1.62, P = luxury.pool;
@@ -89,7 +89,9 @@ if (!renderer) {
   let staying = luxury.inspect().staying, seen = '';
   function goToPlace() {
     const p = luxury.places()[0]; if (!p) return;
-    to.x = p.x + 0.6; to.z = p.z + 2.6 * p.scale + 3.6; to.yaw = 0.06; to.pitch = 0.1; keepOnDeck(to);
+
+    to.x = p.x + 4.6; to.z = p.z + 10.6; keepOnDeck(to);
+    to.yaw = at.yaw + Math.atan2(Math.sin(Math.atan2(to.x - p.x, to.z - p.z) - at.yaw), Math.cos(Math.atan2(to.x - p.x, to.z - p.z) - at.yaw)); to.pitch = 0.07;
   }
   if (staying) { goToPlace(); Object.assign(at, to); }
 

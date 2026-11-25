@@ -42,6 +42,19 @@ if (links.some(a => a.hasAttribute('aria-current'))) nav.append(knot);
 document.body.prepend(nav);
 document.documentElement.classList.add('has-site-nav');
 
+const inFrame = window.top !== window.self;
+function fullScreen() {
+  if (inFrame) { window.parent.postMessage('castle:leave-full', location.origin); return true; }
+  if (!document.fullscreenEnabled) return false;
+  location.href = `${sitePath('/full')}#${here}${location.hash}`;
+  return true;
+}
+for (const a of links) if (a.hasAttribute('aria-current')) a.addEventListener('click', e => { if (fullScreen()) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+addEventListener('keydown', e => {
+  if (e.key !== 'F' || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  if (fullScreen()) e.preventDefault();
+});
+
 const LINE = 31;
 const bend = { x: 0, depth: 0, to: 0, toX: 0, rate: 8 };
 let width = 0, rest = null, frame = 0, last = 0;
